@@ -7,8 +7,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Lift Log">
-<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f2f2f7">
+<script>try { document.documentElement.dataset.theme = localStorage.getItem('ll-theme') || 'auto'; } catch (e) {}</script>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon-180.png">
@@ -21,6 +21,7 @@
 <nav id="tabs">
   <button data-a="tab" data-tab="train"><span data-ic="barbell"></span>Train</button>
   <button data-a="tab" data-tab="history"><span data-ic="clock"></span>History</button>
+  <button data-a="tab" data-tab="progress"><span data-ic="chart"></span>Progress</button>
   <button data-a="tab" data-tab="library"><span data-ic="list"></span>Library</button>
   <button data-a="tab" data-tab="body"><span data-ic="scale"></span>Body</button>
 </nav>
@@ -29,6 +30,7 @@
 <input type="file" id="vid-in" accept="video/*" hidden>
 <input type="file" id="import-in" accept="application/json,.json" hidden>
 <script src="icons.js"></script>
+<script src="data.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

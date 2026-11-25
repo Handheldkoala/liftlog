@@ -1,5 +1,5 @@
 'use strict';
-/* Line icons drawn on a 24×24 grid, 1.6 stroke, currentColor — black in light mode, white in dark. */
+/* Line icons on a 24×24 grid, 1.6 stroke, currentColor — black in light mode, white in dark. */
 
 const EX_ICONS = {
   barbell: '<path d="M8 12h8M2.5 12H4M20 12h1.5"/><rect x="4" y="7.5" width="2.6" height="9" rx=".9"/><rect x="17.4" y="7.5" width="2.6" height="9" rx=".9"/><path d="M8 9.5v5M16 9.5v5"/>',
@@ -7,23 +7,54 @@ const EX_ICONS = {
   bench: '<path d="M3.5 17h13.5M6 17v3.2M15 17v3.2"/><circle cx="5.4" cy="14.4" r="1.5"/><path d="M7.4 14.9H14l3-2 1.4 7.3M10.2 14.9V10.2"/><circle cx="10.2" cy="7.6" r="2.6"/><circle cx="10.2" cy="7.6" r=".7"/>',
   deadlift: '<circle cx="12" cy="4.5" r="1.6"/><path d="M12 6.6V13M12 8l-2.2 6M12 8l2.2 6M12 13l-2 7.5M12 13l2 7.5M3 14h18"/><rect x="3.8" y="11.2" width="2" height="5.6" rx=".7"/><rect x="18.2" y="11.2" width="2" height="5.6" rx=".7"/>',
   press: '<path d="M3 4h18"/><rect x="3.8" y="1.8" width="1.9" height="4.4" rx=".7"/><rect x="18.3" y="1.8" width="1.9" height="4.4" rx=".7"/><circle cx="12" cy="8.2" r="1.5"/><path d="M8.6 4l3.4 6.2L15.4 4M12 10.2v5.3M12 15.5l-2 5.5M12 15.5l2 5.5"/>',
+  smith: '<path d="M4 3v18M20 3v18M3 21h18M4 8h16"/><circle cx="12" cy="5.6" r="1.4"/><path d="M9 8l3 1.2L15 8M12 9.2V14M12 14l-2.6 2.4.6 4.1M12 14l2.6 2.4-.6 4.1"/>',
   row: '<circle cx="5.6" cy="7.2" r="1.5"/><path d="M7.4 8.2L15 10.2l-1.2 4.6 1.6 5.7M15 10.2l3 4.2-.8 6.1M9.8 8.8l.2 3.8"/><circle cx="10" cy="15.2" r="2.5"/><circle cx="10" cy="15.2" r=".6"/>',
+  hipthrust: '<path d="M3 12h5M5.2 12v8.5M3 20.5h18"/><circle cx="4.6" cy="9.4" r="1.4"/><path d="M6.4 10.4l6.6 1.2 3.6-.4 1.6 9.2"/><circle cx="12.6" cy="8.8" r="2.4"/><circle cx="12.6" cy="8.8" r=".6"/>',
+  shrug: '<circle cx="12" cy="4.6" r="1.6"/><path d="M8 8.4h8M12 6.4v8.6M8 8.4V14M16 8.4V14M12 15l-1.6 6M12 15l1.6 6M5.5 7l1-1.6 1 1.6M16.5 7l1-1.6 1 1.6"/><rect x="6.8" y="14" width="2.4" height="3.2" rx=".7"/><rect x="14.8" y="14" width="2.4" height="3.2" rx=".7"/>',
   dumbbell: '<path d="M9 12h6"/><rect x="6.2" y="7.5" width="2.8" height="9" rx="1"/><rect x="15" y="7.5" width="2.8" height="9" rx="1"/><rect x="3.4" y="9.3" width="2.8" height="5.4" rx="1"/><rect x="17.8" y="9.3" width="2.8" height="5.4" rx="1"/>',
+  curl: '<circle cx="10" cy="4" r="1.5"/><path d="M10 5.8v7.6M10 13.4l-1.2 7.6M10 13.4l1.6 7.6M10 7.4v4.2l3.6-2.6"/><circle cx="14.6" cy="8.3" r="1.4"/>',
+  preacher: '<circle cx="5.4" cy="6.4" r="1.5"/><path d="M5.6 8.2v8M3.5 16.4h5M6.5 11l6 4.6M10 13.5V21M7 21h6M6.6 9.6l5 3.6 2.6-5.4"/><circle cx="14.8" cy="6.6" r="1.5"/>',
+  lunge: '<circle cx="11" cy="4" r="1.5"/><path d="M11 5.8V12M11 12l4 3v5.5M11 12l-2.6 5-3.6 2.6M3.5 20.5h17M11 7.6L9 11M11 7.6l2 3.4"/>',
   kettlebell: '<path d="M9 10.2V8a3 3 0 016 0v2.2"/><circle cx="12" cy="14.6" r="5.4"/><path d="M9.4 19.6h5.2"/>',
   machine: '<path d="M3 20.5h17M7 20.5V4.5h4M7 7.2l9.2 3.9M9.5 15.5h5.5M12.2 15.5v5"/><circle cx="17.6" cy="11.8" r="3"/><circle cx="17.6" cy="11.8" r=".7"/>',
+  chestpress: '<path d="M6 5v10h6M9 15v5.5M5 20.5h9"/><circle cx="8.2" cy="5.8" r="1.5"/><path d="M8.2 7.6v6.4M8.2 9.8h7.6M15.8 8.2v3.2"/><circle cx="19" cy="9.8" r="2.4"/><circle cx="19" cy="9.8" r=".6"/>',
+  shoulderpress: '<path d="M6 7v8h6M9 15v5.5M5 20.5h9"/><circle cx="8.2" cy="7.6" r="1.5"/><path d="M8.2 9.4v4.8M8.2 10l3.2-.2V4.2M10.2 4.2h2.6"/><circle cx="16.4" cy="5" r="2.4"/><circle cx="16.4" cy="5" r=".6"/>',
+  seatedrow: '<path d="M3.5 20.5h17M5 17h5M15.4 11.8v5"/><circle cx="7" cy="6.4" r="1.5"/><path d="M7 8.2v8.4M7 16.6h5l3.4-2.6M7.4 10l-2.4 2.6 4 .4M9 13h10.4"/><circle cx="20" cy="13" r="1"/>',
+  hspulldown: '<path d="M6 21h12M12 16.5V21M9 16.5h6"/><circle cx="12.4" cy="9" r="1.5"/><path d="M12.2 10.8v5.4M12.4 11.6l2.4-5-5.6-3-3.6 3.4"/><circle cx="5.4" cy="8.2" r="2.4"/><circle cx="5.4" cy="8.2" r=".6"/>',
+  legpress: '<path d="M3 20.5h17M4.5 19.5L17.5 6M15.6 4.4l4.8 4.8"/><circle cx="4.4" cy="11" r="1.4"/><path d="M5 12.8l2 5.2 5.2-6.6 4.6-3"/>',
+  hacksquat: '<path d="M3 21h18M6.5 20.5L14.5 4M15 20.5l5-1.2"/><circle cx="12.6" cy="7" r="1.5"/><path d="M11.8 8.8L9.6 14l5 1.4 2.4 4.6M10.4 7.6l3.6 1.4"/>',
+  pendulum: '<path d="M4 3h7M6 3v18M3 21h16M6.5 4l6 6"/><circle cx="14.2" cy="8.6" r="1.5"/><path d="M13.8 10.4l-1.6 5 4 1-.6 4.6"/>',
+  legext: '<path d="M6 4.5v10h7.5M9.8 14.5v6M5 20.5h9.5"/><circle cx="8.2" cy="5.3" r="1.5"/><path d="M8.2 7.1v6.4M8.2 13.5h5.3l5.5-2.6M8.2 9l2.6 4.2"/><circle cx="19.3" cy="10.6" r="1.3"/>',
+  legcurl: '<path d="M3 13.5h13M5 13.5v6M14 13.5v6"/><circle cx="4.6" cy="10.6" r="1.4"/><path d="M6.4 11.5H15l3.4-5"/><circle cx="18.9" cy="5.6" r="1.3"/>',
+  seatedcurl: '<path d="M6 4.5v10h7.5M9.8 14.5v6M5 20.5h9.5M10.8 11.6h4.2"/><circle cx="8.2" cy="5.3" r="1.5"/><path d="M8.2 7.1v6.4M8.2 13.5h6l-1.4 5.4M8.2 9l2.8 2"/><circle cx="14.2" cy="19" r="1.2"/>',
+  pecdeck: '<circle cx="12" cy="5.4" r="1.5"/><path d="M12 7.2v7.8M12 9.5H7.4V4.6M12 9.5h4.6V4.6M6.2 4.2v6M17.8 4.2v6M8.5 15.5h7M12 15.5v5M7.5 20.5h9"/>',
+  latraise: '<circle cx="12" cy="5.6" r="1.5"/><path d="M12 7.4v7.6M6 9h12M5.2 7.4v3.2M18.8 7.4v3.2M8.5 15.5h7M12 15.5v5M7.5 20.5h9"/>',
+  pullover: '<path d="M6 15h12M8 15v4.5M16 15v4.5"/><circle cx="6.2" cy="12.4" r="1.4"/><path d="M8 13.2h7l2.4-2.2 1.2 8.5M8.6 13l-4.4-4"/><rect x="1.8" y="6.4" width="3.2" height="3.2" rx=".9"/>',
+  calf: '<path d="M8 6v15M8 6.6h7M9 21h7"/><circle cx="12" cy="4" r="1.5"/><path d="M12 5.8V13M12 13v5l1.6 1.2"/>',
+  crunch: '<path d="M3 19.5h18"/><circle cx="7.4" cy="11.2" r="1.5"/><path d="M8.4 12.8L11 19M11 19l4-5 3.6 5.4M9 15l3-1.2"/>',
   cable: '<path d="M5 21V3h11M3.5 21H20.5"/><circle cx="16" cy="4.8" r="1.6"/><path d="M17.6 4.8v9.4M15.4 14.2h4.4"/><rect x="7" y="11" width="4.6" height="8.4" rx=".7"/><path d="M7 13.8h4.6M7 16.6h4.6"/>',
+  pulldown: '<path d="M4 3h16M12 3v4.5M6 7.5h12M7 7.5l2.6 5.5M17 7.5l-2.6 5.5M9.6 13h4.8"/><circle cx="12" cy="10.6" r="1.4"/><path d="M12 12.4v5M8.5 18h7M12 17.4l-2.8 3.6M12 17.4l2.8 3.6"/>',
+  pushdown: '<path d="M17 3h3M18.5 3v9.5M17 12.8h3"/><circle cx="9.6" cy="4.6" r="1.5"/><path d="M9.6 6.4v7.6M9.6 14l-1.2 7M9.6 14l1.6 7M10 8l.6 4 6.8.8"/>',
+  cablefly: '<circle cx="4" cy="4" r="1.3"/><circle cx="20" cy="4" r="1.3"/><path d="M5 5l5 7M19 5l-5 7"/><circle cx="12" cy="7" r="1.5"/><path d="M12 8.8V16M12 10.2L10 12M12 10.2l2 1.8M12 16l-2 5M12 16l2 5"/>',
   pullup: '<path d="M3 3.5h18M9 3.5l1.5 6M15 3.5l-1.5 6M10.5 9.5h3"/><circle cx="12" cy="7.2" r="1.5"/><path d="M12 9.5v6M12 15.5l-1.6 5.5M12 15.5l1.6 5.5"/>',
   dip: '<path d="M3.5 10h4.5M16 10h4.5M5.8 10v10.5M18.2 10v10.5"/><circle cx="12" cy="4.6" r="1.5"/><path d="M8.6 10L10 7h4l1.4 3M12 6.6v7.4M12 14l-1.2 3.8 2.6 2"/>',
+  backext: '<path d="M7 21h12M12 13.5V21M10.2 15l3.8-3.4M17.5 18.8h2.5"/><circle cx="6.8" cy="6.4" r="1.5"/><path d="M8 7.6l4.4 4.4 6.4 7.4"/>',
   core: '<circle cx="5" cy="10" r="1.5"/><path d="M6.8 11.4L19 14.6M8.5 12v4.6h3M19 14.6v2.6M3 18.6h18"/>',
-  cardio: '<path d="M12 20s-7.5-4.6-7.5-10.2A4.2 4.2 0 0112 7.3a4.2 4.2 0 017.5 2.5C19.5 15.4 12 20 12 20z"/><path d="M6.5 12.5h3l1.2-2.2 2 4.2 1.3-2h3.5"/>',
   body: '<circle cx="12" cy="4.8" r="1.8"/><path d="M12 7.4v7M7 10.4l5-1.6 5 1.6M12 14.4l-2.5 6.6M12 14.4l2.5 6.6"/>',
+  bike: '<circle cx="6" cy="16" r="3.6"/><circle cx="18" cy="16" r="3.6"/><path d="M6 16h4.6l4.2-6.4M10.6 16L8.6 9M7.4 9h2.6M14.8 9.6L18 16M13.6 7.4h2.6M14.8 9.6l.2-2.2"/>',
+  rower: '<path d="M3 19h16"/><circle cx="19" cy="15" r="2.6"/><circle cx="8.2" cy="8.8" r="1.5"/><path d="M11 17L8.6 10.6M11 17l3.4-4 2.6 4.6M9.2 12.2l3.4 1.2 4-.8M9.5 18h3"/>',
+  treadmill: '<path d="M4 19.5h15l1.5-2M17 17.6L19 8M15.5 8.6h5"/><circle cx="10" cy="4.6" r="1.5"/><path d="M10 6.4L9 11.6M9.8 7.8l2.6 2.2M9.8 7.8L7.6 10.4M9 11.6l3 3-1 3.6M9 11.6l-2 3.8-2 .2"/>',
+  stairs: '<path d="M3 20.5h4v-4h4v-4h4v-4h5"/><circle cx="12.6" cy="3.6" r="1.4"/><path d="M12.4 5.4l-.6 4M11.8 9.4l1.8 2.8M11.8 9.4l-1.6 3"/>',
+  cardio: '<path d="M12 20s-7.5-4.6-7.5-10.2A4.2 4.2 0 0112 7.3a4.2 4.2 0 017.5 2.5C19.5 15.4 12 20 12 20z"/><path d="M6.5 12.5h3l1.2-2.2 2 4.2 1.3-2h3.5"/>',
 };
 
 const UI_ICONS = {
   chevR: '<path d="M9.5 6l6 6-6 6"/>',
   chevL: '<path d="M15 5l-7 7 7 7"/>',
+  chevD: '<path d="M6 9.5l6 6 6-6"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
-  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/>',
+  minus: '<path d="M5 12h14"/>',
+  gear: '<path d="M12 3.2l1.6 1.6 2.3-.3.9 2.1 2.1.9-.3 2.3 1.6 1.6-1.6 1.6.3 2.3-2.1.9-.9 2.1-2.3-.3L12 20.8l-1.6-1.6-2.3.3-.9-2.1-2.1-.9.3-2.3L3.8 12l1.6-1.6-.3-2.3 2.1-.9.9-2.1 2.3.3z"/><circle cx="12" cy="12" r="3"/>',
   video: '<rect x="3" y="6.5" width="12.5" height="11" rx="2.5"/><path d="M15.5 10.5l5-3v9l-5-3z"/>',
   more: '<circle cx="6" cy="12" r=".9" fill="currentColor"/><circle cx="12" cy="12" r=".9" fill="currentColor"/><circle cx="18" cy="12" r=".9" fill="currentColor"/>',
   check: '<path d="M5.5 12.5l4.2 4.2 8.8-9.4"/>',
@@ -34,10 +65,18 @@ const UI_ICONS = {
   list: '<rect x="3.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.8"/>',
   scale: '<rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><path d="M8.5 10a3.5 3.5 0 017 0M12 10l1.4-2"/>',
   chart: '<path d="M4 19.5h16M6 15.5l4.2-4.2 3 3L19 8.5"/>',
+  trash: '<path d="M4.5 6.5h15M9.5 6.5V4.5h5v2M6.5 6.5l.9 13h9.2l.9-13M10 10v6.5M14 10v6.5"/>',
+  grip: '<path d="M6 9h12M6 12h12M6 15h12"/>',
+  up: '<path d="M12 19V5M6 11l6-6 6 6"/>',
+  down: '<path d="M12 5v14M6 13l6 6 6-6"/>',
+  flat: '<path d="M4 12h16M14 6l6 6-6 6"/>',
+  target: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".9" fill="currentColor"/>',
+  trophy: '<path d="M7.5 4.5h9v4a4.5 4.5 0 01-9 0zM7.5 6.5H4.5a3 3 0 003 3M16.5 6.5h3a3 3 0 01-3 3M12 13v4M8.5 19.5h7"/>',
+  note: '<path d="M5 4.5h14v15H5zM8.5 9h7M8.5 12.5h7M8.5 16h4"/>',
 };
 
 function svgIcon(body, size, extra = '') {
   return `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"${extra}>${body}</svg>`;
 }
 function icon(name, size = 26) { return svgIcon(EX_ICONS[name] || EX_ICONS.barbell, size); }
-const I = new Proxy({}, { get: (_, k) => svgIcon(UI_ICONS[k] || '', k === 'chevR' ? 16 : 22) });
+const I = new Proxy({}, { get: (_, k) => svgIcon(UI_ICONS[k] || '', k === 'chevR' || k === 'chevD' ? 16 : 22) });
