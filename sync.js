@@ -5,7 +5,14 @@
                  users/{uid}/w/{workoutId} = one finished workout (a deleted one keeps a {del:true} marker) */
 
 // The web config is not a secret: access is limited by the Firestore rules (each account reads only its own data).
-const FB_CONFIG = null;
+const FB_CONFIG = {
+  apiKey: 'AIzaSyBU10g7hslXAnV0GinIkN2fo5MBvBwHZ1A',
+  authDomain: 'liftlog-5baa0.firebaseapp.com',
+  projectId: 'liftlog-5baa0',
+  storageBucket: 'liftlog-5baa0.firebasestorage.app',
+  messagingSenderId: '825907351672',
+  appId: '1:825907351672:web:d449d69cf08f89bab15d8d',
+};
 const FB_V = '11.0.2';
 
 const syncHash = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36) + s.length.toString(36); };
