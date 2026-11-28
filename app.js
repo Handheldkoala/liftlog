@@ -306,7 +306,7 @@ function exCard(e, ei, k) {
     ${fam ? `<button class="var-chip" data-a="switchVar" data-w="${k}" data-ei="${ei}">${isMain(x) ? 'Variations' : 'Variation of ' + esc(mainOf(x).name)}${I.chevD}</button>` : ''}
     ${x.note ? `<p class="ex-note">${I.note}<span>${esc(x.note)}</span></p>` : ''}
     ${last ? `<p class="ex-last">Last time, ${fmtDate(last.w.start, { day: 'numeric', month: 'short' })}: ${last.sets.map(s => setLabel(s, undefined, cardio)).join(', ')}</p>` : ''}
-    <div class="set-row head" style="grid-template-columns:${cols}"><span>Set</span><span>${cardio ? 'km' : 'kg'}</span><span>${cardio ? 'Min' : 'Reps'}</span>${hasE ? `<button class="et" data-a="exMenu" data-w="${k}" data-ei="${ei}">${e.et}</button>` : ''}${live ? '<span></span>' : ''}</div>
+    <div class="set-row head" style="grid-template-columns:${cols}"><span>Set</span><span>${cardio ? 'km' : 'kg'}</span><span>${cardio ? 'Min' : 'Reps'}</span>${hasE ? `<button class="et" data-a="rpeGuide" data-w="${k}" data-ei="${ei}" aria-label="${e.et} guide">${e.et}${svgIcon(UI_ICONS.info, 13)}</button>` : ''}${live ? '<span></span>' : ''}</div>
     ${e.sets.map((s, si) => setRow(e, s, k, ei, si, s.warm ? 'W' : ++n, cols, hasE, live, cardio)).join('')}
     <button class="add-set" data-a="addSet" data-w="${k}" data-ei="${ei}">${I.plus} Add set</button></section>`;
 }
@@ -981,6 +981,7 @@ async function openSettings() {
     </div>
     <p class="label">Effort per set</p>${seg('setEffort', [['RPE', 'RPE'], ['RIR', 'RIR'], ['off', 'Off']], st.effort)}
     <p class="muted hint">Default for new exercises. Switch any exercise during a workout from its ⋯ menu.</p>
+    <div class="card list"><button class="row" data-a="rpeGuide"><span class="row-ic">${I.info}</span><span class="row-main"><span class="row-t">How to rate RPE and RIR</span><span class="row-s">A short guide to logging effort accurately</span></span>${I.chevR}</button></div>
     <p class="label">Gym packages</p>
     <div class="card list">${PACKS.map(([k, n, sub]) => `<div class="row"><span class="row-main"><span class="row-t">${n}</span><span class="row-s">${sub} · ${S.exercises.filter(x => !x.archived && S.sections.find(s => s.id === x.sec)?.pack === k).length} exercises</span></span>${sw(S.settings.packs[k] !== false, 'togglePack', k)}</div>`).join('')}</div>
     <p class="muted hint">Switched-off packages are hidden from the library and the exercise picker. Workouts you logged with them are kept.</p>
@@ -1007,7 +1008,9 @@ async function exportData() {
 function whatsNew() {
   sheet(`<div class="sh-hd"><span></span><h3>What's new</h3><button class="link strong" data-a="closeSheet">Done</button></div>
     <div class="sh-body"><h2 style="margin:4px 4px 12px">Lift Log ${APP_VERSION}</h2><div class="card list news">
-    ${[['video', 'Bar path and speed (experimental)', 'Open a set video and tap the plate: the app follows the bar, measures speed per rep and estimates reps in reserve. Log RPE on analysed sets and it calibrates to you.'],
+    ${[['info', 'RPE guide', 'Tap the ⓘ next to RPE above your sets for a short guide to rating effort accurately.'],
+      ['video', 'Angled videos', 'The bar path analyzer also works when filmed at an angle (up to about 60°). Side view stays the most accurate.'],
+      ['video', 'Bar path and speed (experimental)', 'Open a set video and tap the plate: the app follows the bar, measures speed per rep and estimates reps in reserve. Log RPE on analysed sets and it calibrates to you.'],
       ['heart', 'Friends', 'Turn on sharing under Profile → Friends to get a friend code. Add friends, see their workouts and give likes. Only friends you add can see your summary — never notes, videos or bodyweight.'],
       ['person', 'Your profile', 'Profile → Me shows your rank, best lifts, likes and recent training.'],
       ['chart', 'Analyze tab', 'Progress, a new Analyzer (trends, fatigue, what to lift next time, meet total) and Ranks with DOTS or × bodyweight.'],
@@ -1402,7 +1405,7 @@ const A = {
   },
 };
 
-Object.assign(A, EV_ACTIONS, PASTE_ACTIONS, SOCIAL_ACTIONS, VBT_ACTIONS);
+Object.assign(A, EV_ACTIONS, PASTE_ACTIONS, SOCIAL_ACTIONS, VBT_ACTIONS, RPE_ACTIONS);
 
 function openNote(id) {
   const x = ex(id);

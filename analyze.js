@@ -175,6 +175,7 @@ function analyzerPane() {
     <div class="sec-hd"><h2>Last 30 days</h2></div>
     <div class="card list">${bars(rr, sets30.length)}</div>
     <div class="card list">${withE.length ? bars(er, withE.length) : '<p class="muted hint" style="padding:12px 16px;margin:0">Log RPE or RIR on your sets to see how hard you train.</p>'}</div>
+    <button class="link block" data-a="rpeGuide">How to rate RPE accurately</button>
     <p class="muted hint">${sets30.length} working sets${sets30.length ? `, ${fmtN(withE.length / sets30.length * 100, 0)}% with RPE or RIR` : ''}. Most strength comes from sets at RPE 7–9.</p>`;
 }
 // Last 16 weeks, one square per day, Monday first.

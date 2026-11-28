@@ -50,6 +50,7 @@ const EX_ICONS = {
 
 const UI_ICONS = {
   chevR: '<path d="M9.5 6l6 6-6 6"/>',
+  info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.6v.1"/>',
   heart: '<path d="M12 20.2s-7.5-4.6-7.5-10.3A4.2 4.2 0 0 1 12 7.4a4.2 4.2 0 0 1 7.5 2.5c0 5.7-7.5 10.3-7.5 10.3z"/>',
   person: '<circle cx="12" cy="8.2" r="3.9"/><path d="M4.6 20c1.1-3.7 3.9-5.6 7.4-5.6s6.3 1.9 7.4 5.6"/>',
   chevL: '<path d="M15 5l-7 7 7 7"/>',

@@ -50,10 +50,11 @@ function matchAt(g, w, h, T, px, py, R) {
 }
 
 /* ---------- maths: reps, speed, RIR ---------- */
-function analysePath(pts, pxPerM) {
+// wr: how wide the plate looks compared with its height (1 from the side). Sideways movement shrinks by the same factor.
+function analysePath(pts, pxPerM, wr = 1) {
   if (pts.length < 8) return null;
   const sm = pts.map((p, i) => { const a = pts.slice(Math.max(0, i - 2), i + 3); return { t: p.t, x: a.reduce((s, q) => s + q.x, 0) / a.length, y: a.reduce((s, q) => s + q.y, 0) / a.length }; });
-  const ym = sm.map(p => p.y / pxPerM), xm = sm.map(p => p.x / pxPerM);
+  const ym = sm.map(p => p.y / pxPerM), xm = sm.map(p => p.x / pxPerM / Math.max(.3, wr));
   const v = sm.map((p, i) => { const a = sm[Math.max(0, i - 1)], b = sm[Math.min(sm.length - 1, i + 1)]; return b.t > a.t ? -(b.y - a.y) / pxPerM / (b.t - a.t) : 0; });
   // Concentric phases: the bar moving up steadily over at least 12 cm.
   const reps = []; let i = 0;
@@ -101,7 +102,7 @@ let AN = null;
 function openAnalyzer(vidId) {
   const v = VIDS.find(x => x.id === vidId); if (!v) return;
   const url = URL.createObjectURL(v.blob);
-  AN = { v, url, phase: 'pick', cx: 0, cy: 0, r: 0, pts: [], stop: false };
+  AN = { v, url, phase: 'pick', cx: 0, cy: 0, r: 0, wr: 1, mode: S.settings.vbtMode || 'side', pts: [], stop: false };
   sheet(`<div class="sh-hd"><button class="link" data-a="closeSheet">Close</button><h3>Bar path</h3><span></span></div>
     <div class="sh-body vbt"><div class="vbt-stage"><canvas id="vbt-c"></canvas><video id="vbt-v" muted playsinline preload="auto" src="${url}"></video></div>
     <div id="vbt-ui"></div></div>`, { cls: 'full', onClose: () => { if (AN) { AN.stop = true; URL.revokeObjectURL(AN.url); AN = null; } } });
@@ -131,7 +132,7 @@ function drawFrame(path) {
   const c = $('#vbt-c'), vid = $('#vbt-v'); if (!c || !vid) return;
   const x = c.getContext('2d'); x.drawImage(vid, 0, 0, c.width, c.height);
   const acc = getComputedStyle(document.documentElement).getPropertyValue('--acc').trim() || '#fff';
-  if (AN.phase === 'pick' && AN.cx) { x.strokeStyle = acc; x.lineWidth = 2.5; x.beginPath(); x.arc(AN.cx, AN.cy, AN.r, 0, Math.PI * 2); x.stroke(); x.beginPath(); x.arc(AN.cx, AN.cy, 3, 0, Math.PI * 2); x.fillStyle = acc; x.fill(); }
+  if (AN.phase === 'pick' && AN.cx) { x.strokeStyle = acc; x.lineWidth = 2.5; x.beginPath(); x.ellipse(AN.cx, AN.cy, AN.r * (AN.mode === 'angle' ? AN.wr : 1), AN.r, 0, 0, Math.PI * 2); x.stroke(); x.beginPath(); x.arc(AN.cx, AN.cy, 3, 0, Math.PI * 2); x.fillStyle = acc; x.fill(); }
   const pts = path || AN.pts;
   if (pts.length > 1) {
     const f = AN.k / AN.sk; x.strokeStyle = '#ff9f0a'; x.lineWidth = 3; x.lineJoin = 'round'; x.beginPath();
@@ -140,12 +141,16 @@ function drawFrame(path) {
 }
 function pickUI() {
   const vid = $('#vbt-v'), d = vid.duration || 0;
-  $('#vbt-ui').innerHTML = `<p class="muted hint">${AN.cx ? 'Make the circle match the plate, then start.' : 'Move to the start of the set, then tap the centre of the plate.'} Film from the side with the phone still and the whole plate visible.</p>
+  const ang = AN.mode === 'angle';
+  $('#vbt-ui').innerHTML = `${seg('vbtMode', [['side', 'Side view · most accurate'], ['angle', 'Angled · up to 60°']], AN.mode, 'sm')}
+    <p class="muted hint">${AN.cx ? `Make the ${ang ? 'oval' : 'circle'} match the plate, then start.` : 'Move to the start of the set, then tap the centre of the plate.'} ${ang ? 'Keep the phone level and still, at roughly the height of the bar. Speed is about 5–10% less precise than from the side.' : 'Film straight from the side with the phone still and the whole plate visible.'}</p>
     <p class="label">Position in video</p><input type="range" class="range" id="vbt-t" min="0" max="${d.toFixed(2)}" step="0.03" value="${vid.currentTime}">
-    ${AN.cx ? `<p class="label">Plate size</p><input type="range" class="range" id="vbt-r" min="8" max="${Math.round($('#vbt-c').height / 2.5)}" value="${AN.r}">` : ''}
+    ${AN.cx ? `<p class="label">Plate ${ang ? 'height' : 'size'}</p><input type="range" class="range" id="vbt-r" min="8" max="${Math.round($('#vbt-c').height / 2.5)}" value="${AN.r}">` : ''}
+    ${AN.cx && ang ? `<p class="label">Plate width <span class="muted" id="vbt-ang">${angTxt()}</span></p><input type="range" class="range" id="vbt-w" min="25" max="100" value="${Math.round(AN.wr * 100)}">` : ''}
     <button class="big-btn" data-a="vbtStart" ${AN.cx ? '' : 'disabled'}>Track the bar</button>`;
   $('#vbt-t').oninput = e => { vid.currentTime = +e.target.value; };
   if ($('#vbt-r')) $('#vbt-r').oninput = e => { AN.r = +e.target.value; drawFrame(); };
+  if ($('#vbt-w')) $('#vbt-w').oninput = e => { AN.wr = +e.target.value / 100; $('#vbt-ang').textContent = angTxt(); drawFrame(); };
 }
 async function vbtTrack() {
   const vid = $('#vbt-v'); AN.phase = 'track'; AN.pts = []; AN.stop = false;
@@ -153,7 +158,8 @@ async function vbtTrack() {
   const sc = AN.sk / AN.k, small = AN.sctx;
   const grab = () => { small.drawImage(vid, 0, 0, TRACK_W, AN.sh); return grayOf(small, TRACK_W, AN.sh); };
   let px = AN.cx * sc, py = AN.cy * sc;
-  const side = Math.max(12, Math.min(48, Math.round(AN.r * sc * 1.6)));
+  const wr = AN.mode === 'angle' ? AN.wr : 1;
+  const side = Math.max(12, Math.min(48, Math.round(AN.r * Math.min(1, wr * 1.3) * sc * 1.6)));
   let g = grab(), T = cutTemplate(g, TRACK_W, px, py, side), lost = 0;
   const T0 = { t: T.t.slice(), s: T.s, n: T.n };
   const t0 = vid.currentTime; AN.pts.push({ t: t0, x: px, y: py });
@@ -183,10 +189,11 @@ async function vbtTrack() {
   finishTrack();
 }
 async function finishTrack() {
-  const A = analysePath(AN.pts, AN.pxPerM);
+  const wr = AN.mode === 'angle' ? AN.wr : 1;
+  const A = analysePath(AN.pts, AN.pxPerM, wr);
   if (!A || !A.reps.length) { AN.phase = 'pick'; AN.pts = []; pickUI(); toast('No reps found — try tapping the plate again'); return; }
   const est = estimateRir(AN.v.exId, A.reps);
-  const res = { ...A, est, k: AN.k, sk: AN.sk, at: Date.now() };
+  const res = { ...A, est, k: AN.k, sk: AN.sk, at: Date.now(), mode: AN.mode, angle: wr < 1 ? Math.round(Math.acos(wr) * 180 / Math.PI) : 0 };
   AN.v.analysis = res; await DB.putVideo(AN.v).catch(() => {});
   maybeCalibrate(AN.v, res);
   showResult(res);
@@ -211,16 +218,21 @@ function showResult(r) {
   const f = setOfVideo(AN.v), est = r.est, maxV = Math.max(...r.reps.map(x => x.peak), .1);
   const logged = f && isFinite(rpeOf({ e: f.s.e, et: f.e.et }));
   $('#vbt-ui').innerHTML = `${est ? `<div class="card ana-card"><p class="ana-t">${I.target} About ${fmtN(est.rir)} rep${est.rir === 1 ? '' : 's'} in reserve${est.rir <= 4 ? ` · RPE ${fmtN(10 - est.rir)}` : ''}</p>
-      <p class="ana-s">Last rep moved at ${fmtN(est.last, 2)} m/s (${est.how}). Treat it as a rough guide.</p></div>` : ''}
+      <p class="ana-s">Last rep moved at ${fmtN(est.last, 2)} m/s (${est.how}). ${r.mode === 'angle' ? `Filmed at about ${r.angle}°, so speeds are roughly ±10%.` : ''} Treat it as a rough guide.</p></div>` : ''}
     <div class="stats three"><div class="stat"><div class="k">Reps</div><div class="v">${r.reps.length}</div></div>
       <div class="stat"><div class="k">Best rep</div><div class="v">${fmtN(Math.max(...r.reps.map(x => x.mcv)), 2)}</div><div class="d">m/s average</div></div>
-      <div class="stat"><div class="k">Bar drift</div><div class="v">${fmtN(r.drift, 0)}</div><div class="d">cm sideways</div></div></div>
+      <div class="stat"><div class="k">Bar drift</div><div class="v">${fmtN(r.drift, 0)}</div><div class="d">cm sideways${r.mode === 'angle' ? ', corrected' : ''}</div></div></div>
     <div class="card list">${r.reps.map((x, i) => `<div class="mbar static"><span>Rep ${i + 1}</span><span class="bar"><i style="width:${(x.mcv / maxV * 100).toFixed(0)}%"></i></span><b>${fmtN(x.mcv, 2)}</b></div>`).join('')}</div>
     <p class="muted hint">Average upward speed per rep, in m/s. Speed dropping a lot from the first rep to the last means you were close to failure.${r.calibrated || logged ? ' Your logged RPE on this set was saved to calibrate future estimates.' : ''}</p>
     ${f && !logged && est && est.rir <= 4 ? `<button class="big-btn" data-a="vbtUse">Log RPE ${fmtN(10 - est.rir)} on this set</button>` : ''}
     <button class="big-btn ghost" data-a="vbtAgain">Track again</button>`;
 }
+function angTxt() {
+  const a = Math.round(Math.acos(Math.min(1, AN.wr)) * 180 / Math.PI);
+  return `· camera at about ${a}°${a > 60 ? ' — too steep, results will be off' : ''}`;
+}
 const VBT_ACTIONS = {
+  vbtMode(el) { AN.mode = el.dataset.v; S.settings.vbtMode = AN.mode; save(); if (AN.mode === 'side') AN.wr = 1; else if (AN.wr === 1) AN.wr = .7; drawFrame(); pickUI(); },
   vbtOpen(el) { openAnalyzer(el.dataset.id); },
   vbtStart() { vbtTrack(); },
   vbtStop() { if (AN) AN.stop = true; },
