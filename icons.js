@@ -50,6 +50,7 @@ const EX_ICONS = {
 
 const UI_ICONS = {
   chevR: '<path d="M9.5 6l6 6-6 6"/>',
+  person: '<circle cx="12" cy="8.2" r="3.9"/><path d="M4.6 20c1.1-3.7 3.9-5.6 7.4-5.6s6.3 1.9 7.4 5.6"/>',
   chevL: '<path d="M15 5l-7 7 7 7"/>',
   chevD: '<path d="M6 9.5l6 6 6-6"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',

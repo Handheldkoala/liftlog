@@ -1,5 +1,5 @@
 'use strict';
-/* Lift Log v2 — screens, gestures and actions. Data model and maths are in data.js. All data lives on the device. */
+/* Lift Log — screens, gestures and actions. Data model and maths are in data.js, cloud sync in sync.js. */
 
 /* ---------- storage ---------- */
 const DB = {
@@ -31,9 +31,9 @@ const DB = {
 let S;          // persisted state
 let VIDS = [];  // video records
 const UI = {
-  tab: 'train', stack: { train: [], history: [], progress: [], library: [], body: [] }, scroll: {}, lastKey: '',
+  tab: 'train', stack: { train: [], history: [], progress: [], library: [], profile: [] }, scroll: {}, lastKey: '',
   histSort: 'new', histQ: '', histProg: 'all', libQ: '', libSort: 'sec', libOpen: new Set(['d-squat', 'd-bench-press', 'd-deadlift'].map(() => '')),
-  exRange: 'all', exPage: 0, exFamily: false, e1rmLow: false, repN: 5, bodyRange: '3m', progPeriod: 'month', heatMode: 'frac',
+  exRange: 'all', exPage: 0, exFamily: false, e1rmLow: false, repN: 5, bodyRange: '3m', profSeg: 'me', fbKind: 'idea', progPeriod: 'month', heatMode: 'frac',
   editW: null, urls: [], pick: null, sheetClose: null, picker: null, edit: null, vidTarget: null, noClick: false,
 };
 UI.libOpen.clear();
@@ -41,7 +41,7 @@ UI.libOpen.clear();
 let saveTimer;
 function save(now) {
   clearTimeout(saveTimer);
-  const go = () => DB.set('state', S).catch(e => toast('Could not save: ' + e.message));
+  const go = () => DB.set('state', S).then(() => Sync.schedule()).catch(e => toast('Could not save: ' + e.message));
   if (now) go(); else saveTimer = setTimeout(go, 250);
 }
 
@@ -199,7 +199,7 @@ async function syncWake() {
 }
 
 /* ---------- navigation ---------- */
-const TITLES = { train: 'Train', history: 'History', progress: 'Progress', library: 'Library', body: 'Body' };
+const TITLES = { train: 'Train', history: 'History', progress: 'Progress', library: 'Library', profile: 'Profile' };
 function routeTitle(r) {
   if (!r) return UI.tab === 'train' && S.active ? 'Workout' : TITLES[UI.tab];
   if (r.v === 'program') return S.programs.find(p => p.id === r.id)?.name || 'Program';
@@ -219,7 +219,7 @@ function render(anim) {
   for (const u of UI.urls) URL.revokeObjectURL(u);
   UI.urls = [];
   view.innerHTML = r ? ({ program: vProgram, exercise: vExercise, workout: vWorkout })[r.v](r.id)
-    : ({ train: vTrain, history: vHistory, progress: vProgress, library: vLibrary, body: vBody })[UI.tab]();
+    : ({ train: vTrain, history: vHistory, progress: vProgress, library: vLibrary, profile: vProfile })[UI.tab]();
   view.scrollTop = key === UI.lastKey ? UI.scroll[key] : (anim === 'push' ? 0 : UI.scroll[key] || 0);
   UI.lastKey = key;
   for (const b of $$('#tabs button')) b.classList.toggle('on', b.dataset.tab === UI.tab);
@@ -255,7 +255,7 @@ function vTrain() {
     <div class="prog-main"><div class="prog-name">${esc(p.name)}</div><div class="prog-sub">${p.items.length ? esc(p.items.map(i => ex(i.exId).name).join(' · ')) : 'No exercises yet'}</div></div>
     <button class="pill" data-a="startProgram" data-id="${p.id}">Start</button></div>`).join('');
   const last = [...S.workouts].sort((a, b) => b.start - a.start)[0];
-  return header('Train', { right: `<button class="icon-btn" data-a="settings" aria-label="Settings">${I.gear}</button>` }) + `<div class="pad">
+  return header('Train') + `<div class="pad">
     <button class="big-btn" data-a="startEmpty">${I.plus} Start empty workout</button>
     <div class="sec-hd"><h2>Programs</h2><button class="link strong" data-a="newProgram">New</button></div>
     ${progs || `<div class="empty">Programs are workouts you've saved, ready to start with one tap.<button class="link" data-a="newProgram">Create a program</button></div>`}
@@ -643,13 +643,12 @@ function vProgress() {
 }
 
 /* ---------- Body ---------- */
-function vBody() {
+function bodyPane() {
   const all = [...S.body].sort((a, b) => a.date - b.date);
   const latest = all[all.length - 1];
   const pts = inRange(all.map(b => ({ t: b.date, v: b.kg })), UI.bodyRange);
   const from = Date.now() - 7 * DAY, xs = all.filter(b => b.date >= from), avg7 = xs.length ? xs.reduce((a, b) => a + b.kg, 0) / xs.length : NaN;
-  return header('Body') + `<div class="pad">
-    <div class="card"><div class="bw">
+  return `<div class="card"><div class="bw">
       <input id="bw-val" inputmode="decimal" placeholder="${latest ? fmtN(latest.kg) : 'Weight'}" aria-label="Bodyweight in kg" enterkeyhint="done">
       <input id="bw-date" type="date" value="${isoDay(Date.now())}" max="${isoDay(Date.now())}" aria-label="Date">
       <button class="pill" data-a="logBw">Log</button></div><p class="err" id="bw-err"></p></div>
@@ -657,8 +656,56 @@ function vBody() {
     <div class="stats">
       <div class="stat"><div class="k">Latest</div><div class="v">${latest ? fmtN(latest.kg) + ' kg' : '–'}</div></div>
       <div class="stat"><div class="k">7-day average</div><div class="v">${isFinite(avg7) ? fmtN(avg7) + ' kg' : '–'}</div></div></div>
-    ${all.length ? `<div class="sec-hd"><h2>Entries</h2></div><div class="card list">${[...all].reverse().map(b => `<button class="row" data-a="bwMenu" data-id="${b.id}"><span class="row-main"><span class="row-t">${fmtN(b.kg)} kg</span></span><span class="row-v">${fmtDate(b.date, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span></button>`).join('')}</div>` : ''}
-  </div>`;
+    ${all.length ? `<div class="sec-hd"><h2>Entries</h2></div><div class="card list">${[...all].reverse().map(b => `<button class="row" data-a="bwMenu" data-id="${b.id}"><span class="row-main"><span class="row-t">${fmtN(b.kg)} kg</span></span><span class="row-v">${fmtDate(b.date, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span></button>`).join('')}</div>` : ''}`;
+}
+
+/* ---------- Profile ---------- */
+function vProfile() {
+  return header('Profile', { right: `<button class="icon-btn" data-a="settings" aria-label="Settings">${I.gear}</button>` })
+    + `<div class="pad">${seg('profSeg', [['me', 'Account'], ['body', 'Body']], UI.profSeg, 'top')}${UI.profSeg === 'body' ? bodyPane() : accountPane()}</div>`;
+}
+function signInButtons() {
+  if (!Sync.ready) return `<p class="muted hint">Sign-in isn't switched on yet.</p>`;
+  setTimeout(() => Sync.sdk().catch(() => {}), 0);   // load early so the sign-in window can open straight from the tap
+  return `<button class="big-btn" data-a="signInGoogle">Continue with Google</button><button class="link block" data-a="signInEmail">Use email instead</button>`;
+}
+function accountPane() {
+  const r = Sync.rec, who = r ? (r.name || r.email || 'Signed in') : 'Guest';
+  const first = S.workouts.reduce((m, w) => Math.min(m, w.start), Infinity);
+  const month = S.workouts.filter(w => w.start > Date.now() - 30 * DAY).length;
+  const acct = r ? `<div class="card"><div class="acct"><span class="avatar">${esc(who.trim()[0].toUpperCase())}</span><span class="row-main"><span class="row-t">${esc(who)}</span>${r.name && r.email ? `<span class="row-s">${esc(r.email)}</span>` : ''}</span></div>
+      <p class="sync-line" data-sync-label>${esc(Sync.label())}</p>
+      <div class="btn-row"><button class="pill" data-a="syncNow">Sync now</button><button class="link danger" data-a="signOut">Sign out</button></div></div>`
+    : `<div class="card"><div class="acct"><span class="avatar">${I.person}</span><span class="row-main"><span class="row-t">Guest</span><span class="row-s">Your data is only on this phone</span></span></div>
+      <p class="muted hint">Sign in to back up your training and see it on your PC. Videos stay on this phone.</p>${signInButtons()}</div>`;
+  return `${acct}
+    <div class="stats three">
+      <div class="stat"><div class="k">Workouts</div><div class="v">${S.workouts.length}</div></div>
+      <div class="stat"><div class="k">Last 30 days</div><div class="v">${month}</div></div>
+      <div class="stat"><div class="k">Since</div><div class="v">${isFinite(first) ? fmtDate(first, { month: 'short', year: 'numeric' }) : '–'}</div></div></div>
+    <div class="sec-hd"><h2>Feedback</h2></div>
+    <div class="card fb">${seg('fbKind', [['idea', 'Idea'], ['bug', 'Problem'], ['other', 'Other']], UI.fbKind, 'sm')}
+      <textarea class="notes" id="fb-text" rows="4" maxlength="4000" placeholder="What would make Lift Log better?"></textarea>
+      <button class="pill" data-a="sendFeedback">Send</button></div>
+    <p class="muted hint">Goes straight to the developer${r ? ', with your account so they can follow up' : ''}.</p>`;
+}
+function authMsg(e) {
+  const c = (e && e.code) || '';
+  return ({
+    'auth/popup-blocked': 'The sign-in window was blocked. Try again.',
+    'auth/network-request-failed': 'No internet connection',
+    'auth/invalid-credential': 'Wrong email or password', 'auth/wrong-password': 'Wrong email or password', 'auth/user-not-found': 'No account with that email — create one',
+    'auth/email-already-in-use': 'That email already has an account — sign in instead',
+    'auth/weak-password': 'Use at least 6 characters', 'auth/invalid-email': 'That email address doesn’t look right',
+    'auth/unauthorized-domain': 'This website isn’t allowed to sign in yet',
+    'auth/too-many-requests': 'Too many tries — wait a minute',
+  })[c] || (e && e.message) || 'Could not sign in';
+}
+function welcome() {
+  sheet(`<div class="sh-body welcome"><img class="wl-ic" src="icons/icon-180.png" alt="">
+    <h2>Welcome to Lift Log</h2><p class="muted">Sign in to back up your training and see it on your PC — or keep everything on this phone.</p>
+    ${signInButtons()}<button class="big-btn ghost" data-a="closeSheet">Continue as guest</button>
+    <p class="muted hint center">You can sign in later under Profile.</p></div>`, { cls: 'full' });
 }
 
 /* ---------- Charts ---------- */
@@ -885,7 +932,7 @@ async function openSettings() {
     <div class="card list">
       <button class="row" data-a="exportData"><span class="row-main"><span class="row-t">Export backup</span><span class="row-s">Saves workouts, programs and bodyweight as a file</span></span>${I.chevR}</button>
       <button class="row" data-a="importData"><span class="row-main"><span class="row-t">Import backup</span><span class="row-s">Replaces what's on this phone</span></span>${I.chevR}</button></div>
-    <p class="muted hint">${storage ? esc(storage) + '. ' : ''}Everything is stored only on this phone. Videos aren't included in the backup file.</p>
+    <p class="muted hint">${storage ? esc(storage) + '. ' : ''}${Sync.on ? 'Synced to your account, except videos.' : 'Everything is stored only on this phone.'} Videos aren't included in the backup file.</p>
     <div class="sec-hd"></div>
     <button class="big-btn ghost danger" data-a="eraseAll">Erase all data</button>
     <p class="muted hint center">Lift Log ${APP_VERSION}</p></div>`, { cls: 'full' });
@@ -902,14 +949,11 @@ async function exportData() {
 function whatsNew() {
   sheet(`<div class="sh-hd"><span></span><h3>What's new</h3><button class="link strong" data-a="closeSheet">Done</button></div>
     <div class="sh-body"><h2 style="margin:4px 4px 12px">Lift Log ${APP_VERSION}</h2><div class="card list news">
-    ${[['chart', 'Progress tab', 'Records, lifts getting stronger, plateaus, focus points and a body heatmap of weekly sets per muscle.'],
-      ['list', 'Sections and variations', 'Your own sections in your own order. Squat, bench and deadlift fold out into their variations.'],
-      ['grip', 'Fold, drag and swipe', 'Tap an exercise to fold it, drag folded ones to reorder, swipe a set left to delete it.'],
-      ['chart', 'More graphs', 'Swipe between est. 1RM, RPE-adjusted 1RM, rep max, top weight and volume.'],
-      ['gear', 'Themes and preferences', 'Black/red, black/blue, dark, white or automatic, plus default sets, reps and more.'],
-      ['note', 'Also new', 'Name workouts when you finish, edit finished workouts, exercise notes, plate calculator and 29 new icons.']]
+    ${[['person', 'Profile and sync', 'Sign in with Google to back up your training and see it on your PC. Or stay a guest — everything still works offline.'],
+      ['note', 'Send feedback', 'Ideas and problems go straight to the developer from Profile.'],
+      ['scale', 'Body moved', 'Bodyweight now lives in Profile, next to your account. Settings are there too.']]
       .map(([ic, t, s]) => `<div class="row"><span class="row-ic">${I[ic]}</span><span class="row-main"><span class="row-t">${t}</span><span class="row-s">${s}</span></span></div>`).join('')}</div>
-    <p class="muted hint">All your workouts and programs were kept. Your exercises were sorted into the new sections.</p></div>`, { cls: 'full' });
+    ${Sync.on ? '' : `<div style="height:16px"></div>${signInButtons()}`}</div>`, { cls: 'full' });
 }
 
 /* ---------- actions ---------- */
@@ -922,6 +966,46 @@ const A = {
   back, closeSheet: () => closeSheet(),
   pick(el) { const p = UI.pick; UI.pick = null; closeSheet(); p && p(+el.dataset.i); },
   goWorkout, settings: openSettings,
+
+  profSeg(el) { UI.profSeg = el.dataset.v; render(); },
+  fbKind(el) { UI.fbKind = el.dataset.v; for (const b of el.parentElement.children) { const on = b === el; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); } },
+  async sendFeedback(el) {
+    const t = $('#fb-text'), text = t.value.trim();
+    if (text.length < 3) { t.focus(); return; }
+    if (!Sync.ready) { toast('Feedback isn’t switched on yet'); return; }
+    el.disabled = true;
+    try { await Sync.feedback(text, UI.fbKind); t.value = ''; toast('Thanks — feedback sent'); }
+    catch { toast('Couldn’t send — check your connection'); }
+    el.disabled = false;
+  },
+  async signInGoogle(el) {
+    if (!Sync.fb) { try { await Sync.sdk(); toast('Ready — tap again'); } catch { toast('No internet connection'); } return; }
+    el.disabled = true;
+    try { await Sync.signInGoogle(); closeSheet(); toast('Signed in'); render(); }
+    catch (e) { if (!/popup-closed|cancelled-popup/.test(e.code || '')) toast(authMsg(e)); }
+    el.disabled = false;
+  },
+  signInEmail() {
+    sheet(`<div class="sh-hd"><button class="link" data-a="closeSheet">Cancel</button><h3>Email</h3><span></span></div>
+      <div class="sh-body"><div class="field"><input id="em-mail" type="email" autocomplete="username" placeholder="Email" aria-label="Email"></div>
+      <div class="field" style="margin-top:8px"><input id="em-pass" type="password" autocomplete="current-password" placeholder="Password" aria-label="Password"></div>
+      <p class="err" id="em-err"></p><div style="height:12px"></div>
+      <button class="big-btn" data-a="emailGo">Sign in</button><div style="height:8px"></div>
+      <button class="big-btn ghost" data-a="emailGo" data-k="new">Create account</button></div>`);
+  },
+  async emailGo(el) {
+    const m = $('#em-mail').value.trim(), pw = $('#em-pass').value, err = $('#em-err');
+    if (!m || !pw) { err.textContent = 'Enter your email and a password'; return; }
+    el.disabled = true; err.textContent = '';
+    try { await Sync.signInEmail(m, pw, el.dataset.k === 'new'); closeSheet(); toast('Signed in'); render(); }
+    catch (e) { err.textContent = authMsg(e); }
+    el.disabled = false;
+  },
+  async signOut() {
+    if (!await confirmSheet('Sign out', { title: 'Sign out?', msg: 'Your data stays on this phone and in your account. Changes made while signed out aren’t synced.' })) return;
+    await Sync.signOut(); render(); toast('Signed out');
+  },
+  syncNow() { Sync.run(true); },
 
   startEmpty: () => startWorkout(''),
   startProgram(el) { const p = S.programs.find(x => x.id === el.dataset.id); if (p) startWorkout('', p.id, p.items); },
@@ -1208,10 +1292,11 @@ const A = {
   exportData,
   importData() { const i = $('#import-in'); i.value = ''; i.click(); },
   async eraseAll() {
-    if (!await confirmSheet('Erase everything', { title: 'Erase all data?', msg: 'Every workout, program, bodyweight entry and video on this phone is deleted. Export a backup first if you might want it back.' })) return;
+    if (!await confirmSheet('Erase everything', { title: 'Erase all data?', msg: 'Every workout, program, bodyweight entry and video on this phone is deleted, and you’re signed out (your account keeps its copy). Export a backup first if you might want it back.' })) return;
     const theme = S.settings.theme;
+    await Sync.signOut();
     S = freshState(); S.settings.theme = theme; await DB.clearVideos(); VIDS = []; save(true);
-    UI.stack = { train: [], history: [], progress: [], library: [], body: [] }; UI.tab = 'train'; render(); toast('All data erased');
+    UI.stack = { train: [], history: [], progress: [], library: [], profile: [] }; UI.tab = 'train'; render(); toast('All data erased');
   },
 };
 
@@ -1434,10 +1519,11 @@ $('#import-in').addEventListener('change', async e => {
     closeSheet(true);
     if (!await confirmSheet('Replace my data', { title: 'Import this backup?', msg: `${st.workouts.length} workouts from ${f.name}. Everything currently on this phone except videos is replaced.` })) return;
     S = migrate(st); recomputeAllPRs(); applyTheme(); save(true);
-    UI.stack = { train: [], history: [], progress: [], library: [], body: [] }; render(); toast('Backup imported');
+    UI.stack = { train: [], history: [], progress: [], library: [], profile: [] }; render(); toast('Backup imported');
   } catch (err) { toast("That file isn't a Lift Log backup"); }
 });
-document.addEventListener('visibilitychange', () => { if (!S) return; if (document.hidden) save(true); else tick(); syncWake(); });
+document.addEventListener('visibilitychange', () => { if (!S) return; if (document.hidden) save(true); else { tick(); Sync.run(true); } syncWake(); });
+window.addEventListener('online', () => Sync.run(true));
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => S && applyTheme());
 
 /* ---------- boot ---------- */
@@ -1451,6 +1537,7 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => S 
     S = migrate(stored || freshState());
     recomputeAllPRs();
     VIDS = await DB.allVideos();
+    await Sync.load();
   } catch (e) {
     S = freshState(); fresh = true;
     toast('Storage unavailable — data won’t be kept');
@@ -1461,6 +1548,8 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => S 
   S.seen = APP_VERSION; save(true);
   render();
   if (showNews) setTimeout(whatsNew, 400);
+  else if (fresh && Sync.ready) setTimeout(welcome, 300);
+  Sync.run(true);
   setInterval(tick, 1000);
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
 })();

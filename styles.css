@@ -372,3 +372,24 @@ button.card:active, .prog:active, .row-hit:active, button.row:active { backgroun
 @media (prefers-reduced-transparency: reduce) {
   #tabs { background: var(--card); -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
+
+/* ---------- Profile and sync (3.0) ---------- */
+.seg.top { margin-bottom: 16px; }
+.acct { display: flex; align-items: center; gap: 12px; padding: 14px 16px 4px; }
+.avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--fill); display: grid; place-items: center; font-size: 21px; font-weight: 600; color: var(--acc); flex-shrink: 0; }
+.avatar svg { width: 26px; height: 26px; color: var(--sub); }
+.acct + .hint, .sync-line { margin: 8px 16px 12px; }
+.sync-line { font-size: 13px; color: var(--sub); }
+.sync-line.err { color: var(--red); }
+.card > .big-btn { width: calc(100% - 32px); margin: 0 16px; }
+.btn-row { display: flex; align-items: center; justify-content: space-between; padding: 0 16px 14px; }
+.link.block { display: block; margin: 12px auto; font-size: 15px; }
+.stats.three { grid-template-columns: repeat(3, 1fr); }
+.fb { padding: 12px 16px 16px; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+.fb .seg { align-self: stretch; margin: 0; }
+.fb .notes { background: var(--fill); margin: 0; font-size: 16px; }
+.welcome { text-align: center; padding-top: 36px; }
+.welcome .wl-ic { width: 84px; height: 84px; border-radius: 19px; margin: 0 auto 18px; display: block; box-shadow: 0 6px 20px rgba(0,0,0,.18); }
+.welcome h2 { font-size: 26px; margin: 0 0 8px; }
+.welcome > .muted { margin: 0 12px 26px; line-height: 1.4; }
+.welcome .big-btn.ghost { margin-top: 4px; }
