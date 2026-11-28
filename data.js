@@ -131,18 +131,18 @@ function defaultExercises() {
   });
   return out;
 }
-const defaultSettings = () => ({ theme: 'auto', effort: 'RPE', defSets: 3, defReps: '', autofill: true, wake: true, bar: 20 });
+const defaultSettings = () => ({ theme: 'auto', effort: 'RPE', defSets: 3, defReps: '', autofill: true, wake: true, bar: 20, sex: '' });
 const freshState = () => ({
   v: 2, seen: APP_VERSION,
   sections: DEFAULT_SECTIONS.map(([k, name]) => ({ id: 's-' + k, name })),
-  exercises: defaultExercises(), programs: [], workouts: [], body: [],
+  exercises: defaultExercises(), programs: [], workouts: [], body: [], events: [],
   settings: defaultSettings(), active: null,
 });
 
 /* ---------- migration ---------- */
 function migrate(st) {
   const f = freshState();
-  for (const k of ['exercises', 'programs', 'workouts', 'body']) if (!Array.isArray(st[k])) st[k] = f[k];
+  for (const k of ['exercises', 'programs', 'workouts', 'body', 'events']) if (!Array.isArray(st[k])) st[k] = f[k];
   st.settings = Object.assign(defaultSettings(), st.settings || {});
   if (st.active === undefined) st.active = null;
 

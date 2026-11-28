@@ -31,9 +31,9 @@ const DB = {
 let S;          // persisted state
 let VIDS = [];  // video records
 const UI = {
-  tab: 'train', stack: { train: [], history: [], progress: [], library: [], profile: [] }, scroll: {}, lastKey: '',
+  tab: 'train', stack: { train: [], history: [], analyze: [], library: [], profile: [] }, scroll: {}, lastKey: '',
   histSort: 'new', histQ: '', histProg: 'all', libQ: '', libSort: 'sec', libOpen: new Set(['d-squat', 'd-bench-press', 'd-deadlift'].map(() => '')),
-  exRange: 'all', exPage: 0, exFamily: false, e1rmLow: false, repN: 5, bodyRange: '3m', profSeg: 'me', fbKind: 'idea', progPeriod: 'month', heatMode: 'frac',
+  exRange: 'all', exPage: 0, exFamily: false, e1rmLow: false, repN: 5, bodyRange: '3m', profSeg: 'me', anaView: 'progress', rankMode: 'dots', heatEff: false, fbKind: 'idea', progPeriod: 'month', heatMode: 'frac',
   editW: null, urls: [], pick: null, sheetClose: null, picker: null, edit: null, vidTarget: null, noClick: false,
 };
 UI.libOpen.clear();
@@ -181,13 +181,14 @@ function suggestName(w) {
 function goWorkout() { UI.tab = 'train'; UI.stack.train = []; closeSheet(true); render(); }
 
 /* ---------- theme & screen ---------- */
-const THEMES = [['auto', 'Automatic', 'Follows your iPhone'], ['light', 'White', ''], ['dark', 'Dark', ''], ['red', 'Black / red', ''], ['blue', 'Black / blue', '']];
+const THEMES = [['auto', 'Automatic', 'Follows your iPhone'], ['light', 'White', ''], ['cream', 'Cream', ''], ['dark', 'Dark', ''], ['charcoal', 'Charcoal', ''], ['red', 'Black / red', ''], ['blue', 'Black / blue', '']];
+const THEME_BG = { light: '#f2f2f7', cream: '#f3eee4', charcoal: '#1d1e21' };
 function applyTheme() {
   const t = S.settings.theme;
   document.documentElement.dataset.theme = t;
   try { localStorage.setItem('ll-theme', t); } catch {}
-  const dark = t !== 'light' && (t !== 'auto' || matchMedia('(prefers-color-scheme: dark)').matches);
-  $('meta[name="theme-color"]').setAttribute('content', dark ? '#000000' : '#f2f2f7');
+  const k = t === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t;
+  $('meta[name="theme-color"]').setAttribute('content', THEME_BG[k] || '#000000');
 }
 let wakeLock = null;
 async function syncWake() {
@@ -199,7 +200,7 @@ async function syncWake() {
 }
 
 /* ---------- navigation ---------- */
-const TITLES = { train: 'Train', history: 'History', progress: 'Progress', library: 'Library', profile: 'Profile' };
+const TITLES = { train: 'Train', history: 'History', analyze: 'Analyze', library: 'Library', profile: 'Profile' };
 function routeTitle(r) {
   if (!r) return UI.tab === 'train' && S.active ? 'Workout' : TITLES[UI.tab];
   if (r.v === 'program') return S.programs.find(p => p.id === r.id)?.name || 'Program';
@@ -219,7 +220,7 @@ function render(anim) {
   for (const u of UI.urls) URL.revokeObjectURL(u);
   UI.urls = [];
   view.innerHTML = r ? ({ program: vProgram, exercise: vExercise, workout: vWorkout })[r.v](r.id)
-    : ({ train: vTrain, history: vHistory, progress: vProgress, library: vLibrary, profile: vProfile })[UI.tab]();
+    : ({ train: vTrain, history: vHistory, analyze: vAnalyze, library: vLibrary, profile: vProfile })[UI.tab]();
   view.scrollTop = key === UI.lastKey ? UI.scroll[key] : (anim === 'push' ? 0 : UI.scroll[key] || 0);
   UI.lastKey = key;
   for (const b of $$('#tabs button')) b.classList.toggle('on', b.dataset.tab === UI.tab);
@@ -285,7 +286,7 @@ function exCard(e, ei, k) {
   const fam = !isMain(x) || kidsOf(x.id).length > 0;
   const nv = VIDS.filter(v => v.workoutId === w.id && v.exId === e.exId).length;
   const cols = ['34px', '1fr', '1fr', hasE ? '58px' : '', live ? '40px' : ''].filter(Boolean).join(' ');
-  const head = `<div class="ex-hd">${e.fold ? `<span class="drag" data-drag aria-label="Drag to reorder">${I.grip}</span>` : ''}
+  const head = `<div class="ex-hd"><span class="drag" data-drag aria-label="Drag to reorder">${I.grip}</span>
     <button class="ex-title" data-a="fold" data-w="${k}" data-ei="${ei}" aria-expanded="${!e.fold}">${icon(x.icon)}<span class="ex-name"><span>${esc(x.name)}</span>${e.fold ? `<small>${foldSummary(e, x)}</small>` : ''}</span><span class="fold-chev">${I.chevD}</span></button>
     <button class="icon-btn sm" data-a="addVideo" data-ex="${x.id}" data-w="${w.id}" aria-label="Add video">${I.video}${nv ? `<b>${nv}</b>` : ''}</button>
     <button class="icon-btn sm" data-a="exMenu" data-w="${k}" data-ei="${ei}" aria-label="More options">${I.more}</button></div>`;
@@ -392,6 +393,7 @@ function vWorkout(id) {
       <div class="stat"><div class="k">Volume</div><div class="v">${fmtVol(wVolume(w))}</div></div>
       <div class="stat"><div class="k">Working sets</div><div class="v">${wSets(w)}</div></div>
       <div class="stat"><div class="k">PRs</div><div class="v">${prs}</div></div></div>
+    ${workoutOverview(w)}
     ${w.exercises.map(e => { const x = ex(e.exId), cardio = isCardio(x); const vids = VIDS.filter(v => v.workoutId === w.id && v.exId === e.exId); let n = 0; return `<section class="card excard">
       <div class="ex-hd"><button class="ex-title" data-a="openExercise" data-id="${x.id}">${icon(x.icon)}<span class="ex-name"><span>${esc(x.name)}</span></span></button>
       <button class="icon-btn sm" data-a="addVideo" data-ex="${x.id}" data-w="${w.id}" aria-label="Add video">${I.video}</button></div>
@@ -477,7 +479,7 @@ function exPages(id) {
 function pageCard(p) {
   const extra = (p.toggle ? `<button class="chip mini-chip ${UI.e1rmLow ? 'on' : ''}" data-a="e1rmLow">1–5 reps only</button>` : '')
     + (p.wheel ? wheel() : '');
-  return chartCard({ label: p.label, pts: inRange(p.pts, UI.exRange), unit: p.unit, isVol: p.vol, note: p.note, extra, id: 'pg-' + p.key });
+  return chartCard({ label: p.label, pts: inRange(p.pts, UI.exRange), unit: p.unit, isVol: p.vol, note: p.note, extra, id: 'pg-' + p.key, evs: UI.exEvs || [] });
 }
 function wheel() {
   return `<div class="wheel" data-wheel aria-label="Number of reps"><div class="wheel-track">${Array.from({ length: 15 }, (_, i) => i + 1)
@@ -486,6 +488,7 @@ function wheel() {
 function vExercise(id) {
   const x = ex(id), main = mainOf(x), hasFam = kidsOf(main.id).length > 0;
   const sess = sessionsFor(UI.exFamily ? familyIds(id) : id);
+  const evs = eventsFor(id); UI.exEvs = evs;
   const pages = exPages(id);
   if (UI.exPage >= pages.length) UI.exPage = 0;
   const all = sess.flatMap(o => o.sets.filter(s => !s.warm));
@@ -507,6 +510,7 @@ function vExercise(id) {
       <div class="stat"><div class="k">Sessions</div><div class="v">${sess.length}</div></div>
       <div class="stat"><div class="k">Total volume</div><div class="v">${fmtVol(vol)}</div></div></div>`}
     ${x.note ? `<div class="card ex-note-card">${I.note}<span>${esc(x.note)}</span></div>` : ''}
+    ${eventsCard(evs, { scope: 'exercise', ref: id })}
     <div class="sec-hd"><h2>Videos</h2><button class="link strong" data-a="addVideo" data-ex="${id}">Add</button></div>
     ${vids.length ? vidGrid(vids) : `<div class="empty">Record a set or pick a video from your library to watch it back here.</div>`}
     <div class="sec-hd"><h2>History</h2>${sess.length ? `<span class="muted">${sess.length} session${sess.length > 1 ? 's' : ''}</span>` : ''}</div>
@@ -519,11 +523,11 @@ function vExercise(id) {
 
 /* ---------- Progress ---------- */
 const PERIODS = [['week', 'Week', 7], ['month', 'Month', 30], ['3m', '3 months', 91], ['year', 'Year', 365]];
-function muscleSets(ws, mode) {
+function muscleSets(ws, mode, eff) {
   const t = Object.fromEntries(MUSCLES.map(m => [m[0], 0]));
   for (const w of ws) for (const e of w.exercises) {
     const x = ex(e.exId); if (isCardio(x)) continue;
-    const n = e.sets.filter(working).length; if (!n) continue;
+    const n = e.sets.filter(working).reduce((a, s) => a + (eff ? effortWeight(s, e.et) : 1), 0); if (!n) continue;
     for (const p of x.m.p) if (p in t) t[p] += n;
     if (mode === 'frac') for (const s of x.m.s) if (s in t) t[s] += n * .5;
   }
@@ -556,7 +560,7 @@ function progressData(days) {
   improving.sort((a, b) => b.pct - a.pct); dropping.sort((a, b) => a.pct - b.pct); plateaus.sort((a, b) => b.weeks - a.weeks);
   const prs = cur.flatMap(w => w.exercises.flatMap(e => e.sets.filter(s => s.isPR).map(s => ({ w, e, s }))));
   const weeks = Math.max(1, days / 7);
-  const heat = muscleSets(cur, UI.heatMode);
+  const heat = muscleSets(cur, UI.heatMode, UI.heatEff);
   for (const k in heat) heat[k] /= weeks;
   const focus = [];
   if (cur.length) {
@@ -597,7 +601,7 @@ function mirror(type, a) {
   if (type === 'rect') b.x = 100 - a.x - a.width; else if ('cx' in a) b.cx = 100 - a.cx;
   return b;
 }
-function heatFill(v) { return v > 0 ? `fill:var(--acc);fill-opacity:${(.2 + .8 * Math.min(1, v / 20)).toFixed(2)}` : 'fill:var(--fill2)'; }
+function heatFill(v) { const z = zoneOf(v); return z ? `fill:var(--acc);fill-opacity:${ZONE_OP[z]}` : 'fill:var(--fill2)'; }
 function figure(shapes, heat, label) {
   const el = (m, type, a) => `<${type} ${Object.entries(a).map(([k, v]) => `${k}="${v}"`).join(' ')} ${m ? `class="mz" data-a="muscleInfo" data-m="${m}" style="${heatFill(heat[m])}"` : 'class="mz-n"'}/>`;
   return `<figure class="fig"><svg viewBox="0 0 100 180" role="img" aria-label="${label}">${shapes.map(([m, type, a, mir]) => el(m, type, a) + (mir ? el(m, type, mirror(type, a)) : '')).join('')}</svg><figcaption>${label}</figcaption></figure>`;
@@ -607,11 +611,11 @@ function hlRow(id, right, sub) {
   return `<button class="row hl-row" data-a="openExercise" data-id="${id}"><span class="row-ic">${icon(x.icon, 24)}</span><span class="row-main"><span class="row-t">${esc(x.name)}</span><span class="row-s">${sub}</span></span><span class="hl-v">${right}</span></button>`;
 }
 function deltaTxt(a, b, f = v => v) { const d = a - b; return d === 0 ? 'Same as before' : `${d > 0 ? '+' : '−'}${f(Math.abs(d))} vs previous`; }
-function vProgress() {
+function progressPane() {
   const [pk, plabel, days] = PERIODS.find(p => p[0] === UI.progPeriod);
   const D = progressData(days);
   const seg1 = seg('progPeriod', PERIODS.map(p => [p[0], p[1]]), pk);
-  if (!S.workouts.length) return header('Progress') + `<div class="pad">${seg1}<div class="empty">Finish a few workouts and your progress, plateaus and weekly muscle volume show up here.</div></div>`;
+  if (!S.workouts.length) return `${seg1}<div class="empty">Finish a few workouts and your progress, plateaus and weekly muscle volume show up here.</div>`;
   const per = plabel.toLowerCase();
   const card = (title, ic, body) => `<p class="grp-t hl-t">${I[ic]}${title}</p><div class="card list">${body}</div>`;
   let hl = '';
@@ -623,7 +627,7 @@ function vProgress() {
   if (D.focus.length) hl += card('Focus points', 'target', D.focus.map(f => `<div class="row focus-row"><span class="row-main"><span class="row-t">${esc(f.t)}</span><span class="row-s">${esc(f.s)}</span></span></div>`).join(''));
   if (!hl) hl = `<div class="empty">No highlights this ${per} yet. Keep logging and changes in your lifts appear here.</div>`;
   const sorted = MUSCLES.map(([k, n]) => [k, n, D.heat[k]]).sort((a, b) => b[2] - a[2]);
-  return header('Progress', { sub: `Last ${days} days` }) + `<div class="pad">${seg1}
+  return `${seg1}
     <div class="stats">
       <div class="stat"><div class="k">Workouts</div><div class="v">${D.cur.n}</div><div class="d">${deltaTxt(D.cur.n, D.prev.n)}</div></div>
       <div class="stat"><div class="k">Working sets</div><div class="v">${D.cur.sets}</div><div class="d">${deltaTxt(D.cur.sets, D.prev.sets)}</div></div>
@@ -633,13 +637,15 @@ function vProgress() {
     <div class="sec-hd"><h2>Weekly sets per muscle</h2></div>
     <div class="card heat-card">
       ${seg('heatMode', [['frac', 'Fractional'], ['prim', 'Primary only']], UI.heatMode)}
+      <div class="row eff-row"><span class="row-main"><span class="row-t">Effort-adjusted</span><span class="row-s">Easy sets count less (RPE 7 = ¾, RPE 6 = ½)</span></span>${sw(UI.heatEff, 'heatEff', '')}</div>
       <p class="muted hint">${UI.heatMode === 'frac' ? 'Main muscles count 1 set, helping muscles ½ set. A bench set counts as 1 chest, ½ triceps and ½ front delts.' : 'Only the main muscle of each exercise counts.'} Averaged per week over the last ${days} days.</p>
       <div class="figs">${figure(FIG_FRONT, D.heat, 'Front')}${figure(FIG_BACK, D.heat, 'Back')}</div>
-      <div class="legend"><span>0</span><i></i><span>20+ sets/week</span></div>
+      <div class="zones">${ZONES.slice(1).map(([at, n], i) => `<span><i style="opacity:${ZONE_OP[i + 1]}"></i>${n}<small>${['1–3', '4–9', '10–20', '20+'][i]}</small></span>`).join('')}</div>
       <p class="heat-info" id="heat-info">Tap a muscle to see its sets.</p>
     </div>
-    <div class="card list">${sorted.map(([k, n, v]) => `<div class="mbar" data-a="muscleInfo" data-m="${k}"><span>${n}</span><span class="bar"><i style="width:${Math.min(100, v / 20 * 100)}%"></i></span><b>${fmtN(v)}</b></div>`).join('')}</div>
-  </div>`;
+    <div class="card list">${sorted.map(([k, n, v]) => `<div class="mbar" data-a="muscleInfo" data-m="${k}"><span>${n}</span><span class="bar zoned"><i style="width:${Math.min(100, v / 25 * 100)}%;opacity:${ZONE_OP[zoneOf(v)] || 0}"></i></span><b>${fmtN(v)}</b></div>`).join('')}</div>
+    <p class="muted hint">The shaded band marks 10–20 sets a week, where most people grow best.</p>
+    ${eventsCard(S.events || [])}`;
 }
 
 /* ---------- Body ---------- */
@@ -652,7 +658,7 @@ function bodyPane() {
       <input id="bw-val" inputmode="decimal" placeholder="${latest ? fmtN(latest.kg) : 'Weight'}" aria-label="Bodyweight in kg" enterkeyhint="done">
       <input id="bw-date" type="date" value="${isoDay(Date.now())}" max="${isoDay(Date.now())}" aria-label="Date">
       <button class="pill" data-a="logBw">Log</button></div><p class="err" id="bw-err"></p></div>
-    ${chartCard({ label: 'Bodyweight', pts, unit: 'kg', neutral: true, extra: seg('bodyRange', RANGES.map(r => [r[0], r[1]]), UI.bodyRange, 'sm') })}
+    ${chartCard({ label: 'Bodyweight', pts, unit: 'kg', neutral: true, evs: eventsFor(null), extra: seg('bodyRange', RANGES.map(r => [r[0], r[1]]), UI.bodyRange, 'sm') })}
     <div class="stats">
       <div class="stat"><div class="k">Latest</div><div class="v">${latest ? fmtN(latest.kg) + ' kg' : '–'}</div></div>
       <div class="stat"><div class="k">7-day average</div><div class="v">${isFinite(avg7) ? fmtN(avg7) + ' kg' : '–'}</div></div></div>
@@ -720,13 +726,13 @@ function chartHead(pts, unit, isVol, neutral) {
   } else if (last) delta = fmtDate(last.t, { day: 'numeric', month: 'short', year: 'numeric' });
   return { big: last ? f(last.v) : '–', delta: delta || '&nbsp;', up };
 }
-function chartCard({ label, pts, unit, isVol, neutral, note = '', extra = '', id = '' }) {
+function chartCard({ label, pts, unit, isVol, neutral, note = '', extra = '', id = '', evs = [] }) {
   const h = chartHead(pts, unit, isVol, neutral);
   return `<div class="card chart-card" ${id ? `id="${id}"` : ''} data-unit="${unit}" data-vol="${isVol ? 1 : ''}"><p class="k">${esc(label)}</p>
     <p class="big">${h.big}</p><p class="delta ${h.up ? 'up' : ''}">${h.delta}</p>
-    <div class="chart-slot">${chart(pts)}</div>${note ? `<p class="chart-note">${esc(note)}</p>` : ''}${extra}</div>`;
+    <div class="chart-slot">${chart(pts, evs)}</div>${note ? `<p class="chart-note">${esc(note)}</p>` : ''}${evNote(pts, evs)}${extra}</div>`;
 }
-function chart(pts) {
+function chart(pts, evs = []) {
   if (pts.length < 2) return `<div class="chart-empty">${pts.length ? 'Log one more to see the graph' : 'Nothing logged in this period'}</div>`;
   const pl = 2, pr = 34, pt = 10, pb = 22, W = CW - pl - pr, H = CH - pt - pb;
   const t0 = pts[0].t, t1 = pts[pts.length - 1].t;
@@ -740,6 +746,7 @@ function chart(pts) {
   return `<svg class="chart" viewBox="0 0 ${CW} ${CH}" data-pts="${esc(JSON.stringify(data))}" role="img" aria-label="Graph of ${pts.length} entries">
     ${grid}<path class="ar" d="${line}L${xy[xy.length - 1][0]} ${pt + H}L${xy[0][0]} ${pt + H}Z"/><path class="ln" d="${line}"/>
     ${pts.length <= 40 ? xy.map(p => `<circle class="dot" cx="${p[0]}" cy="${p[1]}" r="2.6"/>`).join('') : ''}
+    ${evs.filter(e => e.date >= t0 && e.date <= t1).map(e => { const x = X(e.date).toFixed(1); return `<line class="evl" x1="${x}" x2="${x}" y1="${pt}" y2="${pt + H}"/><circle class="evd k-${e.kind}" cx="${x}" cy="${pt + H}" r="3.4"><title>${esc(e.title)}</title></circle>`; }).join('')}
     <line class="cur" x1="0" x2="0" y1="${pt}" y2="${pt + H}"/><circle class="hl" r="4.5" cx="0" cy="0"/>
     <text x="${pl}" y="${CH - 5}">${fmtDate(t0, { day: 'numeric', month: 'short' })}</text><text x="${pl + W}" y="${CH - 5}" text-anchor="end">${fmtDate(t1, { day: 'numeric', month: 'short' })}</text></svg>`;
 }
@@ -968,6 +975,11 @@ const A = {
   goWorkout, settings: openSettings,
 
   profSeg(el) { UI.profSeg = el.dataset.v; render(); },
+  anaView(el) { UI.anaView = el.dataset.v; render(); },
+  rankMode(el) { UI.rankMode = el.dataset.v; render(); },
+  setSex(el) { S.settings.sex = el.dataset.v; save(); render(); },
+  heatEff() { UI.heatEff = !UI.heatEff; render(); },
+  goBody() { UI.tab = 'profile'; UI.profSeg = 'body'; UI.stack.profile = []; render(); setTimeout(() => $('#bw-val')?.focus(), 100); },
   fbKind(el) { UI.fbKind = el.dataset.v; for (const b of el.parentElement.children) { const on = b === el; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); } },
   async sendFeedback(el) {
     const t = $('#fb-text'), text = t.value.trim();
@@ -1042,6 +1054,7 @@ const A = {
   addExToWorkout(el) {
     const k = el.dataset.w, w = getW(k);
     openPicker(ids => {
+      if (ids.length) for (const e of w.exercises) e.fold = true;   // keep the list short: earlier exercises fold away
       for (const id of ids) { const e = makeEntry(id); if (k !== 'a') for (const s of e.sets) { s.pw = ''; s.pr = ''; } w.exercises.push(e); }
       save(); render(); setTimeout(() => $('#view').scrollTo({ top: 1e6, behavior: 'smooth' }), 50);
     });
@@ -1265,7 +1278,7 @@ const A = {
     const users = new Set();
     for (const w of S.workouts.filter(w => w.start >= Date.now() - days * DAY)) for (const e of w.exercises) { const x = ex(e.exId); if (x.m.p.includes(k) || (UI.heatMode === 'frac' && x.m.s.includes(k))) users.add(x.name); }
     const info = $('#heat-info');
-    if (info) info.innerHTML = `<b>${MNAME[k]}</b>: ${fmtN(v)} sets a week${users.size ? ` · from ${esc([...users].slice(0, 4).join(', '))}${users.size > 4 ? '…' : ''}` : ''}`;
+    if (info) info.innerHTML = `<b>${MNAME[k]}</b>: ${fmtN(v)} sets a week (${ZONES[zoneOf(v)][1].toLowerCase()})${users.size ? ` · from ${esc([...users].slice(0, 4).join(', '))}${users.size > 4 ? '…' : ''}` : ''}`;
     $$('.mz').forEach(z => z.classList.toggle('sel', z.dataset.m === k));
   },
 
@@ -1296,9 +1309,11 @@ const A = {
     const theme = S.settings.theme;
     await Sync.signOut();
     S = freshState(); S.settings.theme = theme; await DB.clearVideos(); VIDS = []; save(true);
-    UI.stack = { train: [], history: [], progress: [], library: [], profile: [] }; UI.tab = 'train'; render(); toast('All data erased');
+    UI.stack = { train: [], history: [], analyze: [], library: [], profile: [] }; UI.tab = 'train'; render(); toast('All data erased');
   },
 };
+
+Object.assign(A, EV_ACTIONS);
 
 function openNote(id) {
   const x = ex(id);
@@ -1519,7 +1534,7 @@ $('#import-in').addEventListener('change', async e => {
     closeSheet(true);
     if (!await confirmSheet('Replace my data', { title: 'Import this backup?', msg: `${st.workouts.length} workouts from ${f.name}. Everything currently on this phone except videos is replaced.` })) return;
     S = migrate(st); recomputeAllPRs(); applyTheme(); save(true);
-    UI.stack = { train: [], history: [], progress: [], library: [], profile: [] }; render(); toast('Backup imported');
+    UI.stack = { train: [], history: [], analyze: [], library: [], profile: [] }; render(); toast('Backup imported');
   } catch (err) { toast("That file isn't a Lift Log backup"); }
 });
 document.addEventListener('visibilitychange', () => { if (!S) return; if (document.hidden) save(true); else { tick(); Sync.run(true); } syncWake(); });
