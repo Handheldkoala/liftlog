@@ -696,7 +696,7 @@ function bodyPane() {
 /* ---------- Profile ---------- */
 function vProfile() {
   return header('Profile', { right: `<button class="icon-btn" data-a="settings" aria-label="Settings">${I.gear}</button>` })
-    + `<div class="pad">${seg('profSeg', [['me', 'Account'], ['body', 'Body']], UI.profSeg, 'top')}${UI.profSeg === 'body' ? bodyPane() : accountPane()}</div>`;
+    + `<div class="pad">${seg('profSeg', [['me', 'Me'], ['friends', 'Friends'], ['body', 'Body']], UI.profSeg, 'top')}${UI.profSeg === 'body' ? bodyPane() : UI.profSeg === 'friends' ? friendsPane() : mePane()}</div>`;
 }
 function signInButtons() {
   if (!Sync.ready) return `<p class="muted hint">Sign-in isn't switched on yet.</p>`;
@@ -716,8 +716,11 @@ function accountPane() {
     <div class="stats three">
       <div class="stat"><div class="k">Workouts</div><div class="v">${S.workouts.length}</div></div>
       <div class="stat"><div class="k">Last 30 days</div><div class="v">${month}</div></div>
-      <div class="stat"><div class="k">Since</div><div class="v">${isFinite(first) ? fmtDate(first, { month: 'short', year: 'numeric' }) : '–'}</div></div></div>
-    <div class="sec-hd"><h2>Feedback</h2></div>
+      <div class="stat"><div class="k">Since</div><div class="v">${isFinite(first) ? fmtDate(first, { month: 'short', year: 'numeric' }) : '–'}</div></div></div>`;
+}
+function feedbackCard() {
+  const r = Sync.rec;
+  return `<div class="sec-hd"><h2>Feedback</h2></div>
     <div class="card fb">${seg('fbKind', [['idea', 'Idea'], ['bug', 'Problem'], ['other', 'Other']], UI.fbKind, 'sm')}
       <textarea class="notes" id="fb-text" rows="4" maxlength="4000" placeholder="What would make Lift Log better?"></textarea>
       <button class="pill" data-a="sendFeedback">Send</button></div>
@@ -1004,7 +1007,9 @@ async function exportData() {
 function whatsNew() {
   sheet(`<div class="sh-hd"><span></span><h3>What's new</h3><button class="link strong" data-a="closeSheet">Done</button></div>
     <div class="sh-body"><h2 style="margin:4px 4px 12px">Lift Log ${APP_VERSION}</h2><div class="card list news">
-    ${[['chart', 'Analyze tab', 'Progress, a new Analyzer (trends, fatigue, what to lift next time, meet total) and Ranks with DOTS or × bodyweight.'],
+    ${[['heart', 'Friends', 'Turn on sharing under Profile → Friends to get a friend code. Add friends, see their workouts and give likes. Only friends you add can see your summary — never notes, videos or bodyweight.'],
+      ['person', 'Your profile', 'Profile → Me shows your rank, best lifts, likes and recent training.'],
+      ['chart', 'Analyze tab', 'Progress, a new Analyzer (trends, fatigue, what to lift next time, meet total) and Ranks with DOTS or × bodyweight.'],
       ['target', 'Clearer heatmap', 'Stepped colours from low to high, a 10–20 sets target band, and an effort-adjusted switch.'],
       ['list', 'Splits and paste', 'Group programs into a split and the app suggests the next day. Paste a program as text to build it in one go.'],
       ['gear', 'Gym packages', 'Powerhouse (Hammer Strength) and PureGym (Matrix) can be switched on or off in Settings.'],
@@ -1069,7 +1074,7 @@ const A = {
   },
   async signOut() {
     if (!await confirmSheet('Sign out', { title: 'Sign out?', msg: 'Your data stays on this phone and in your account. Changes made while signed out aren’t synced.' })) return;
-    await Sync.signOut(); render(); toast('Signed out');
+    await Sync.signOut(); Social.data = null; render(); toast('Signed out');
   },
   syncNow() { Sync.run(true); },
 
@@ -1395,7 +1400,7 @@ const A = {
   },
 };
 
-Object.assign(A, EV_ACTIONS, PASTE_ACTIONS);
+Object.assign(A, EV_ACTIONS, PASTE_ACTIONS, SOCIAL_ACTIONS);
 
 function openNote(id) {
   const x = ex(id);
@@ -1569,6 +1574,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.matches('.title-input, .set-row input, .mini, .sec-name')) e.target.blur();
   if (e.key === 'Enter' && e.target.id === 'bw-val') A.logBw();
   if (e.key === 'Enter' && e.target.id === 'finish-name') A.confirmFinish();
+  if (e.key === 'Enter' && e.target.id === 'add-code') A.socAdd($('[data-a="socAdd"]'));
   if (e.key === 'Escape') closeSheet();
 });
 document.addEventListener('input', e => {

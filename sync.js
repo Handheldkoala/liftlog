@@ -134,6 +134,7 @@ const Sync = {
 
       R.lastPull = maxTs; R.at = Date.now(); this.state = 'idle'; this.err = '';
       await this.persist();
+      if (Social.on) Social.publish().catch(() => {});
       if (changed) {
         recomputeAllPRs(); save(true);
         if (!document.activeElement?.matches?.('#view input, #view textarea')) render();

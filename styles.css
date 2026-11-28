@@ -489,3 +489,34 @@ button.card:active, .prog:active, .row-hit:active, button.row:active { backgroun
 .set-x { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 0 0 6px 44px; font-size: 13px; color: var(--sub); }
 .set-vid { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; background: var(--fill); border-radius: 999px; padding: 3px 9px; color: var(--text); }
 .set-vid .ic { width: 12px; height: 12px; }
+
+/* ---------- Social (3.2) ---------- */
+.soc-intro { padding: 16px; }
+.soc-intro .big-btn { width: 100%; margin: 12px 0 0; }
+.soc-intro .field input { background: var(--fill); }
+.code-card { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; margin-bottom: 10px; }
+.code-card .k { margin: 0; font-size: 13px; color: var(--sub); }
+.code { margin: 2px 0 0; font-size: 28px; font-weight: 700; letter-spacing: .08em; font-variant-numeric: tabular-nums; }
+.add-friend { display: flex; gap: 8px; align-items: center; }
+.add-friend .field { flex: 1; }
+.add-friend .field input { text-transform: uppercase; letter-spacing: .06em; }
+.avatar.big { width: 58px; height: 58px; font-size: 26px; }
+.row > .avatar { width: 36px; height: 36px; font-size: 16px; margin-left: 16px; }
+.row .pill + .link { margin-left: 4px; }
+.feed { padding: 12px 16px 8px; margin-bottom: 10px; }
+.feed-hd { display: flex; align-items: center; gap: 10px; width: 100%; }
+.feed-hd .avatar { width: 38px; height: 38px; font-size: 17px; }
+.feed-sum { margin: 8px 0 6px; font-size: 14px; color: var(--sub); }
+.feed-sum b { color: var(--text); }
+.feed-lines > div { display: grid; grid-template-columns: 24px 1fr auto; align-items: center; gap: 8px; font-size: 14px; min-height: 28px; }
+.feed-lines .row-ic { width: 24px; }
+.feed-lines .muted { font-variant-numeric: tabular-nums; }
+.feed-ft { display: flex; align-items: center; gap: 10px; border-top: .5px solid var(--sep); margin-top: 8px; padding-top: 6px; }
+.like { display: inline-flex; align-items: center; gap: 4px; color: var(--sub); font-weight: 600; font-size: 14px; min-height: 36px; padding-right: 4px; }
+.like .ic { width: 22px; height: 22px; transition: transform .25s var(--ease); }
+.like.on { color: var(--red); }
+.like.on .ic { fill: currentColor; }
+.like:active .ic { transform: scale(.85); }
+.fr-hd { display: flex; align-items: center; gap: 14px; margin: 4px 4px 14px; }
+.fr-hd p { margin: 0; }
+button.rank-hero { width: 100%; text-align: left; }

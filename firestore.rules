@@ -2,10 +2,46 @@ rules_version = '2';
 // Paste this into Firebase console → Firestore Database → Rules, then press Publish.
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    // Is the signed-in user on this person's friends list? Each person decides who is on their own list.
+    function friendOf(uid) { return exists(/databases/$(database)/documents/profiles/$(uid)/friends/$(me())); }
+
     // Each account can read and write only its own training data.
     match /users/{uid}/{rest=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if signedIn() && me() == uid;
     }
+
+    // Friend codes: anyone signed in can look one up; only the owner can create or remove theirs.
+    match /codes/{code} {
+      allow get: if signedIn();
+      allow create: if signedIn() && request.resource.data.uid == me() && request.resource.data.keys().hasOnly(['uid']);
+      allow delete: if signedIn() && resource.data.uid == me();
+    }
+
+    // Shared profile: a summary of your training. Readable by you and by people on your friends list.
+    match /profiles/{uid} {
+      allow read: if signedIn() && (me() == uid || friendOf(uid));
+      allow write: if signedIn() && me() == uid;
+      match /friends/{fid} {
+        allow read, write: if signedIn() && me() == uid;
+      }
+      match /likes/{lid} {
+        allow read: if signedIn() && (me() == uid || friendOf(uid));
+        allow create: if signedIn() && friendOf(uid) && request.resource.data.by == me()
+          && lid == request.resource.data.wid + '_' + me()
+          && request.resource.data.keys().hasOnly(['by', 'name', 'wid', 'wname', 'ts']);
+        allow delete: if signedIn() && resource.data.by == me();
+      }
+    }
+
+    // Friend requests: the sender writes one; the receiver reads and clears them.
+    match /requests/{to}/in/{from} {
+      allow read: if signedIn() && me() == to;
+      allow create: if signedIn() && me() == from && request.resource.data.keys().hasOnly(['name', 'code', 'ts']);
+      allow delete: if signedIn() && (me() == to || me() == from);
+    }
+
     // Anyone using the app can send feedback; nobody can read it from the app (read it in the Firebase console).
     match /feedback/{id} {
       allow create: if request.resource.data.keys().hasOnly(['text', 'kind', 'v', 'uid', 'ts'])
