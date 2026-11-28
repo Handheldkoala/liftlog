@@ -313,7 +313,7 @@ function exCard(e, ei, k) {
 function setExtras(s) {
   const v = VIDS.filter(x => x.setId === s.id);
   if (!s.note && !v.length) return '';
-  return `<div class="set-x">${v.map(x => `<button class="set-vid" data-a="playVideo" data-id="${x.id}">${svgIcon(UI_ICONS.play, 12)} Video</button>`).join('')}${s.note ? `<span>${esc(s.note)}</span>` : ''}</div>`;
+  return `<div class="set-x">${v.map(x => `<button class="set-vid" data-a="playVideo" data-id="${x.id}">${svgIcon(UI_ICONS.play, 12)} ${x.analysis?.est ? `${fmtN(x.analysis.est.last, 2)} m/s · ~${fmtN(x.analysis.est.rir)} RIR` : 'Video'}</button>`).join('')}${s.note ? `<span>${esc(s.note)}</span>` : ''}</div>`;
 }
 // Warm-up ramp to the first working weight: empty bar, then about 40 / 60 / 80 %.
 function addWarmups(e) {
@@ -1007,7 +1007,8 @@ async function exportData() {
 function whatsNew() {
   sheet(`<div class="sh-hd"><span></span><h3>What's new</h3><button class="link strong" data-a="closeSheet">Done</button></div>
     <div class="sh-body"><h2 style="margin:4px 4px 12px">Lift Log ${APP_VERSION}</h2><div class="card list news">
-    ${[['heart', 'Friends', 'Turn on sharing under Profile → Friends to get a friend code. Add friends, see their workouts and give likes. Only friends you add can see your summary — never notes, videos or bodyweight.'],
+    ${[['video', 'Bar path and speed (experimental)', 'Open a set video and tap the plate: the app follows the bar, measures speed per rep and estimates reps in reserve. Log RPE on analysed sets and it calibrates to you.'],
+      ['heart', 'Friends', 'Turn on sharing under Profile → Friends to get a friend code. Add friends, see their workouts and give likes. Only friends you add can see your summary — never notes, videos or bodyweight.'],
       ['person', 'Your profile', 'Profile → Me shows your rank, best lifts, likes and recent training.'],
       ['chart', 'Analyze tab', 'Progress, a new Analyzer (trends, fatigue, what to lift next time, meet total) and Ranks with DOTS or × bodyweight.'],
       ['target', 'Clearer heatmap', 'Stepped colours from low to high, a 10–20 sets target band, and an effort-adjusted switch.'],
@@ -1349,6 +1350,7 @@ const A = {
     sheet(`<div class="sh-hd"><span></span><h3>${esc(ex(v.exId).name)}</h3><button class="link strong" data-a="closeSheet">Done</button></div>
       <div class="sh-body player"><video controls playsinline autoplay src="${url}"></video>
       <p class="muted" style="margin:10px 4px">${fmtDate(v.date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}${w ? ' · ' + esc(w.name) : ''}</p>
+      ${isCardio(ex(v.exId)) ? '' : `<button class="big-btn" data-a="vbtOpen" data-id="${v.id}">${v.analysis ? 'View bar path and speed' : 'Analyze bar path and speed'}</button><p class="muted hint center">Experimental · estimates reps in reserve from bar speed</p>`}
       <button class="big-btn ghost danger" data-a="deleteVideo" data-id="${v.id}">Delete video</button></div>`, { onClose: () => URL.revokeObjectURL(url) });
   },
   async deleteVideo(el) {
@@ -1400,7 +1402,7 @@ const A = {
   },
 };
 
-Object.assign(A, EV_ACTIONS, PASTE_ACTIONS, SOCIAL_ACTIONS);
+Object.assign(A, EV_ACTIONS, PASTE_ACTIONS, SOCIAL_ACTIONS, VBT_ACTIONS);
 
 function openNote(id) {
   const x = ex(id);

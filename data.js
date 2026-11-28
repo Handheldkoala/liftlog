@@ -1,7 +1,7 @@
 'use strict';
 /* Lift Log — data model: default sections and exercises, muscle map, migration from v1, strength maths. */
 
-const APP_VERSION = '3.2';
+const APP_VERSION = '3.3';
 
 /* ---------- small helpers shared with app.js ---------- */
 const $ = (s, r = document) => r.querySelector(s);
