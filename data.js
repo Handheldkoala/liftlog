@@ -81,7 +81,10 @@ const CARDIO_ICONS = new Set(['bike', 'rower', 'treadmill', 'stairs', 'cardio'])
 
 /* ---------- defaults ---------- */
 const DEFAULT_SECTIONS = [['sbd', 'SBD'], ['hsm', 'Hammer Strength machines'], ['hsp', 'Hammer Strength plate loaded'], ['cab', 'Cables'],
-  ['bar', 'Barbells'], ['db', 'Dumbbells'], ['bw', 'Bodyweight'], ['cardio', 'Cardio']];
+  ['bar', 'Barbells'], ['db', 'Dumbbells'], ['bw', 'Bodyweight'], ['cardio', 'Cardio'], ['mx', 'Matrix machines']];
+// Gym packages: sections that belong to one gym's machines and can be hidden in Settings.
+const PACKS = [['powerhouse', 'Powerhouse', 'Hammer Strength machines and plate-loaded'], ['puregym', 'PureGym', 'Matrix machines']];
+const SEC_PACK = { 's-hsm': 'powerhouse', 's-hsp': 'powerhouse', 's-mx': 'puregym' };
 // [name, section, icon, muscle preset, variation of]
 const DX = [
   ['Squat', 'sbd', 'squat', 'squat'], ['Bench Press', 'sbd', 'bench', 'bench'], ['Deadlift', 'sbd', 'deadlift', 'dead'],
@@ -121,6 +124,16 @@ const DX = [
   ['Back Extension', 'bw', 'backext', 'backext'], ['Hanging Leg Raise', 'bw', 'pullup', 'abs'], ['Plank', 'bw', 'core', 'abs'], ['Walking Lunge', 'bw', 'lunge', 'lunge'],
 
   ['Bike', 'cardio', 'bike', 'none'], ['Rower', 'cardio', 'rower', 'none'], ['Treadmill', 'cardio', 'treadmill', 'none'], ['Stair Climber', 'cardio', 'stairs', 'none'],
+
+  // Standard Matrix selectorised lineup (PureGym); a PureGym member can add their gym's extras.
+  ...[['Chest Press', 'chestpress', 'press'], ['Converging Chest Press', 'chestpress', 'press'], ['Shoulder Press', 'shoulderpress', 'shpress'],
+    ['Pec Fly / Rear Delt', 'pecdeck', 'fly'], ['Lat Pulldown', 'hspulldown', 'pull'], ['Diverging Lat Pulldown', 'hspulldown', 'pull'],
+    ['Seated Row', 'seatedrow', 'row'], ['Diverging Seated Row', 'seatedrow', 'row'], ['Leg Press', 'legpress', 'legpress'],
+    ['Leg Extension', 'legext', 'legext'], ['Seated Leg Curl', 'seatedcurl', 'legcurl'], ['Prone Leg Curl', 'legcurl', 'legcurl'],
+    ['Hip Abductor', 'machine', 'hip'], ['Hip Adductor', 'machine', 'adduct'], ['Glute', 'machine', 'hip'],
+    ['Biceps Curl', 'preacher', 'curl'], ['Triceps Extension', 'pushdown', 'tri'], ['Triceps Press', 'dip', 'tri'],
+    ['Abdominal', 'crunch', 'abs'], ['Back Extension', 'backext', 'backext'], ['Calf Raise', 'calf', 'calf'],
+    ['Assisted Chin / Dip', 'pullup', 'chin']].map(([n, ic, pre]) => ['Matrix ' + n, 'mx', ic, pre]),
 ];
 function defaultExercises() {
   const out = DX.map(([name, sec, ic, pre, parent]) => {
@@ -131,19 +144,20 @@ function defaultExercises() {
   });
   return out;
 }
-const defaultSettings = () => ({ theme: 'auto', effort: 'RPE', defSets: 3, defReps: '', autofill: true, wake: true, bar: 20, sex: '' });
+const defaultSettings = () => ({ theme: 'auto', effort: 'RPE', defSets: 3, defReps: '', autofill: true, wake: true, bar: 20, sex: '', packs: { powerhouse: true, puregym: false } });
 const freshState = () => ({
-  v: 2, seen: APP_VERSION,
-  sections: DEFAULT_SECTIONS.map(([k, name]) => ({ id: 's-' + k, name })),
-  exercises: defaultExercises(), programs: [], workouts: [], body: [], events: [],
+  v: 3, seen: APP_VERSION,
+  sections: DEFAULT_SECTIONS.map(([k, name]) => ({ id: 's-' + k, name, ...(SEC_PACK['s-' + k] ? { pack: SEC_PACK['s-' + k] } : {}) })),
+  exercises: defaultExercises(), programs: [], splits: [], workouts: [], body: [], events: [],
   settings: defaultSettings(), active: null,
 });
 
 /* ---------- migration ---------- */
 function migrate(st) {
   const f = freshState();
-  for (const k of ['exercises', 'programs', 'workouts', 'body', 'events']) if (!Array.isArray(st[k])) st[k] = f[k];
+  for (const k of ['exercises', 'programs', 'splits', 'workouts', 'body', 'events']) if (!Array.isArray(st[k])) st[k] = f[k];
   st.settings = Object.assign(defaultSettings(), st.settings || {});
+  st.settings.packs = Object.assign(defaultSettings().packs, st.settings.packs || {});
   if (st.active === undefined) st.active = null;
 
   if (!(st.v >= 2)) {
@@ -176,6 +190,14 @@ function migrate(st) {
     st.seen = st.seen || '1';
   }
   if (!Array.isArray(st.sections) || !st.sections.length) st.sections = f.sections;
+  if (!(st.v >= 3)) {
+    // v2 → v3: gym packages. Tag Hammer Strength sections, add the Matrix section and its exercises.
+    for (const s of st.sections) if (SEC_PACK[s.id]) s.pack = SEC_PACK[s.id];
+    for (const s of f.sections) if (s.pack && !st.sections.some(x => x.id === s.id)) st.sections.push({ ...s });
+    const have = new Set(st.exercises.map(x => x.id));
+    for (const d of f.exercises) if (d.sec === 's-mx' && !have.has(d.id)) st.exercises.push({ ...d, m: cloneM(d.m) });
+    st.v = 3;
+  }
   const secIds = new Set(st.sections.map(s => s.id));
   for (const x of st.exercises) {
     if (!secIds.has(x.sec)) x.sec = st.sections[0].id;

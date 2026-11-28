@@ -18,7 +18,7 @@ const FB_V = '11.0.2';
 const syncHash = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36) + s.length.toString(36); };
 // PR badges are recalculated on each device, so they're left out of what's synced.
 const syncJSON = o => JSON.stringify(o, (k, v) => k === 'isPR' ? undefined : v);
-const metaOf = st => ({ sections: st.sections, exercises: st.exercises, programs: st.programs, body: st.body, events: st.events, settings: Object.assign({}, st.settings, { theme: undefined }) });
+const metaOf = st => ({ sections: st.sections, exercises: st.exercises, programs: st.programs, splits: st.splits, body: st.body, events: st.events, settings: Object.assign({}, st.settings, { theme: undefined }) });
 function mergeById(remote, local) { const m = new Map(); for (const x of remote || []) m.set(x.id, x); for (const x of local || []) m.set(x.id, x); return [...m.values()]; }
 
 const Sync = {
@@ -109,10 +109,10 @@ const Sync = {
         const r = md.data();
         if (r.h !== R.meta) {
           const rm = JSON.parse(r.j), localChanged = mh !== R.meta;
-          if (!localChanged) Object.assign(S, { sections: rm.sections, exercises: rm.exercises, programs: rm.programs, body: rm.body, events: rm.events || [], settings: Object.assign({}, S.settings, rm.settings, { theme: S.settings.theme }) });
+          if (!localChanged) Object.assign(S, { sections: rm.sections, exercises: rm.exercises, programs: rm.programs, body: rm.body, events: rm.events || [], splits: rm.splits || [], settings: Object.assign({}, S.settings, rm.settings, { theme: S.settings.theme }) });
           else {   // changed on both sides (or first sign-in on this device): keep everything from both
             S.sections = mergeById(rm.sections, S.sections); S.exercises = mergeById(rm.exercises, S.exercises);
-            S.programs = mergeById(rm.programs, S.programs); S.body = mergeById(rm.body, S.body); S.events = mergeById(rm.events, S.events);
+            S.programs = mergeById(rm.programs, S.programs); S.body = mergeById(rm.body, S.body); S.events = mergeById(rm.events, S.events); S.splits = mergeById(rm.splits, S.splits);
           }
           changed = true;
         }

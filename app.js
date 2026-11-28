@@ -72,6 +72,8 @@ const kidsOf = id => S.exercises.filter(x => x.parent === id && !x.archived);
 const mainOf = x => isMain(x) ? x : ex(x.parent);
 const familyIds = id => { const m = mainOf(ex(id)); return [m.id, ...kidsOf(m.id).map(k => k.id)]; };
 const isCardio = x => x.kind === 'cardio';
+// Hidden when its gym package is switched off in Settings (history keeps it).
+const packOff = x => { const p = S.sections.find(s => s.id === x.sec)?.pack; return !!p && S.settings.packs?.[p] === false; };
 const getW = k => k === 'a' ? S.active : S.workouts.find(w => w.id === k);
 const performed = s => s.done && num(s.r) > 0;
 const working = s => performed(s) && !s.warm;
@@ -252,14 +254,21 @@ function vidGrid(list) {
 /* ---------- Train ---------- */
 function vTrain() {
   if (S.active) return vActive();
-  const progs = S.programs.map(p => `<div class="card prog" data-a="openProgram" data-id="${p.id}" role="button" tabindex="0">
-    <div class="prog-main"><div class="prog-name">${esc(p.name)}</div><div class="prog-sub">${p.items.length ? esc(p.items.map(i => ex(i.exId).name).join(' · ')) : 'No exercises yet'}</div></div>
-    <button class="pill" data-a="startProgram" data-id="${p.id}">Start</button></div>`).join('');
+  const progCard = (p, next) => `<div class="card prog ${next ? 'next' : ''}" data-a="openProgram" data-id="${p.id}" role="button" tabindex="0">
+    <div class="prog-main">${next ? '<div class="next-tag">Next up</div>' : ''}<div class="prog-name">${esc(p.name)}</div><div class="prog-sub">${p.items.length ? esc(p.items.map(i => ex(i.exId).name).join(' · ')) : 'No exercises yet'}</div></div>
+    <button class="pill ${next ? '' : 'ghost'}" data-a="startProgram" data-id="${p.id}">Start</button></div>`;
+  const splits = (S.splits || []).map(sp => {
+    const days = S.programs.filter(p => p.split === sp.id), nx = nextDay(sp);
+    return `<div class="sec-hd"><h2>${esc(sp.name)}</h2><button class="link" data-a="splitMenu" data-id="${sp.id}" aria-label="${esc(sp.name)} options">${I.more}</button></div>
+      ${days.length ? days.map(p => progCard(p, nx && p.id === nx.id)).join('') : `<div class="empty small">No days yet.<button class="link" data-a="newProgram" data-split="${sp.id}">Add a day</button></div>`}`;
+  }).join('');
+  const loose = S.programs.filter(p => !p.split || !(S.splits || []).some(s => s.id === p.split));
   const last = [...S.workouts].sort((a, b) => b.start - a.start)[0];
   return header('Train') + `<div class="pad">
     <button class="big-btn" data-a="startEmpty">${I.plus} Start empty workout</button>
-    <div class="sec-hd"><h2>Programs</h2><button class="link strong" data-a="newProgram">New</button></div>
-    ${progs || `<div class="empty">Programs are workouts you've saved, ready to start with one tap.<button class="link" data-a="newProgram">Create a program</button></div>`}
+    ${splits}
+    <div class="sec-hd"><h2>${splits ? 'Other programs' : 'Programs'}</h2><span class="hd-actions"><button class="link" data-a="newSplit">New split</button><button class="link strong" data-a="newProgram">New</button></span></div>
+    ${loose.map(p => progCard(p)).join('') || (splits ? '' : `<div class="empty">Programs are workouts you've saved, ready to start with one tap. Group them into a split, like Push / Pull / Legs, and the app suggests the next day.<button class="link" data-a="newProgram">Create a program</button></div>`)}
     ${last ? `<div class="sec-hd"><h2>Last workout</h2></div>${workoutRow(last)}` : ''}</div>`;
 }
 function vActive() {
@@ -326,6 +335,8 @@ function vProgram(id) {
   return `<header class="hd"><div class="hd-bar"><button class="back" data-a="back">${I.chevL}<span>${esc(backLabel())}</span></button></div>
     <input class="title-input" data-bind="prog:${id}:name" value="${esc(p.name)}" placeholder="Program name" aria-label="Program name" enterkeyhint="done"></header>
     <div class="pad"><button class="big-btn" data-a="startProgram" data-id="${id}">${svgIcon(UI_ICONS.play, 18)} Start workout</button>
+    <div class="card list"><div class="row"><span class="row-main"><span class="row-t">Split</span><span class="row-s">Group days like Push / Pull / Legs</span></span>
+      <select class="select inline" id="prog-split" data-id="${id}" aria-label="Split"><option value="">None</option>${(S.splits || []).map(s => `<option value="${s.id}" ${p.split === s.id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}<option value="+">New split…</option></select></div></div>
     <div class="sec-hd"><h2>Exercises</h2></div>
     ${p.items.length ? `<div class="card list" data-reorder="prog:${id}">${p.items.map((it, i) => { const x = ex(it.exId); return `<div class="row" data-ri="${i}">
       <span class="drag" data-drag aria-label="Drag to reorder">${I.grip}</span><span class="row-ic">${icon(x.icon)}</span>
@@ -402,7 +413,7 @@ function vWorkout(id) {
     ${w.notes ? `<div class="card"><div class="muted" style="font-size:13px;font-weight:600;margin-bottom:4px">Notes</div>${esc(w.notes).replace(/\n/g, '<br>')}</div>` : ''}
     <div class="sec-hd"></div>
     <button class="big-btn" data-a="repeatWorkout" data-id="${id}">Repeat this workout</button>
-    <button class="big-btn ghost" data-a="saveAsProgram" data-id="${id}">Save as program</button>
+    <button class="big-btn ghost" data-a="saveAsProgram" data-id="${id}">Turn into program</button>
     <button class="big-btn ghost danger" data-a="deleteWorkout" data-id="${id}">Delete workout</button></div>`;
 }
 function finishEditing(id) {
@@ -420,7 +431,7 @@ function useCounts() { const c = {}; for (const w of S.workouts) for (const e of
 const sessionsText = n => n ? `${n} session${n > 1 ? 's' : ''}` : '';
 function libList() {
   const q = UI.libQ.trim().toLowerCase(), counts = useCounts();
-  const live = S.exercises.filter(x => !x.archived);
+  const live = S.exercises.filter(x => !x.archived && !packOff(x));
   if (q || UI.libSort === 'used') {
     let list = live.filter(x => x.name.toLowerCase().includes(q));
     if (!list.length) return `<div class="empty">No exercise called “${esc(UI.libQ)}”.<button class="link" data-a="newExLib">Create it</button></div>`;
@@ -432,7 +443,7 @@ function libList() {
     }
     return S.sections.map(s => { const xs = list.filter(x => x.sec === s.id).sort((a, b) => a.name.localeCompare(b.name)); return xs.length ? `<p class="grp-t">${esc(s.name)}</p><div class="card list">${xs.map(x => exRow(x, { meta: isMain(x) ? sessionsText(counts[x.id]) : 'Variation of ' + esc(mainOf(x).name) })).join('')}</div>` : ''; }).join('');
   }
-  return S.sections.map(s => {
+  return S.sections.filter(s => !(s.pack && S.settings.packs?.[s.pack] === false)).map(s => {
     const mains = live.filter(x => x.sec === s.id && isMain(x)).sort((a, b) => s.id === 's-sbd' ? 0 : a.name.localeCompare(b.name));
     const orphans = live.filter(x => x.sec === s.id && !isMain(x) && ex(x.parent).sec !== s.id);
     const rows = mains.map(x => {
@@ -830,6 +841,23 @@ function actionSheet(items, { title = '', msg = '' } = {}) {
     UI.pick = done;
   });
 }
+// The day after the last one done in this split (or the first day).
+function nextDay(sp) {
+  const days = S.programs.filter(p => p.split === sp.id); if (!days.length) return null;
+  const last = [...S.workouts].sort((a, b) => b.start - a.start).find(w => days.some(d => d.id === w.programId));
+  if (!last) return days[0];
+  return days[(days.findIndex(d => d.id === last.programId) + 1) % days.length];
+}
+function inputSheet(title, value = '', ph = '') {
+  return new Promise(res => {
+    let done = false; const fin = v => { if (!done) { done = true; res(v); } };
+    sheet(`<div class="sh-hd"><button class="link" data-a="closeSheet">Cancel</button><h3>${esc(title)}</h3><button class="link strong" id="in-ok">Save</button></div>
+      <div class="sh-body"><div class="field"><input id="in-val" value="${esc(value)}" placeholder="${esc(ph)}" enterkeyhint="done"></div></div>`, { onClose: () => fin(null) });
+    const inp = $('#in-val'), ok = () => { const v = inp.value.trim(); if (!v) { inp.focus(); return; } fin(v); closeSheet(); };
+    $('#in-ok').onclick = ok; inp.onkeydown = e => { if (e.key === 'Enter') ok(); };
+    setTimeout(() => inp.focus(), 80);
+  });
+}
 const confirmSheet = async (label, opts = {}) => (await actionSheet([{ label, danger: opts.danger !== false }], opts)) === 0;
 let toastT;
 function toast(msg, undo) {
@@ -852,7 +880,7 @@ function openPicker(onDone, title = 'Add exercises') {
 function renderPicker() {
   const P = UI.picker, q = P.q.trim().toLowerCase();
   const mark = id => P.sel.includes(id) ? `<span class="pick on">${svgIcon(UI_ICONS.check, 16)}</span>` : `<span class="pick"></span>`;
-  const live = S.exercises.filter(x => !x.archived);
+  const live = S.exercises.filter(x => !x.archived && !packOff(x));
   let html;
   if (q) {
     const list = live.filter(x => x.name.toLowerCase().includes(q));
@@ -933,6 +961,9 @@ async function openSettings() {
     </div>
     <p class="label">Effort per set</p>${seg('setEffort', [['RPE', 'RPE'], ['RIR', 'RIR'], ['off', 'Off']], st.effort)}
     <p class="muted hint">Default for new exercises. Switch any exercise during a workout from its ⋯ menu.</p>
+    <p class="label">Gym packages</p>
+    <div class="card list">${PACKS.map(([k, n, sub]) => `<div class="row"><span class="row-main"><span class="row-t">${n}</span><span class="row-s">${sub} · ${S.exercises.filter(x => !x.archived && S.sections.find(s => s.id === x.sec)?.pack === k).length} exercises</span></span>${sw(S.settings.packs[k] !== false, 'togglePack', k)}</div>`).join('')}</div>
+    <p class="muted hint">Switched-off packages are hidden from the library and the exercise picker. Workouts you logged with them are kept.</p>
     <p class="label">Library</p>
     <div class="card list"><button class="row" data-a="editSections"><span class="row-main"><span class="row-t">Edit sections</span><span class="row-s">${S.sections.length} sections</span></span>${I.chevR}</button></div>
     <p class="label">Your data</p>
@@ -975,6 +1006,7 @@ const A = {
   goWorkout, settings: openSettings,
 
   profSeg(el) { UI.profSeg = el.dataset.v; render(); },
+  togglePack(el) { const k = el.dataset.k, on = S.settings.packs[k] === false; S.settings.packs[k] = on; el.classList.toggle('on', on); el.setAttribute('aria-checked', on); haptic(); save(); render(); },
   anaView(el) { UI.anaView = el.dataset.v; render(); },
   rankMode(el) { UI.rankMode = el.dataset.v; render(); },
   setSex(el) { S.settings.sex = el.dataset.v; save(); render(); },
@@ -1022,8 +1054,9 @@ const A = {
   startEmpty: () => startWorkout(''),
   startProgram(el) { const p = S.programs.find(x => x.id === el.dataset.id); if (p) startWorkout('', p.id, p.items); },
   openProgram(el) { push({ v: 'program', id: el.dataset.id }); },
-  newProgram() {
-    const p = { id: uid(), name: 'New program', items: [] };
+  newProgram(el) {
+    const sp = el?.dataset?.split || '';
+    const p = { id: uid(), name: sp ? 'Day ' + (S.programs.filter(x => x.split === sp).length + 1) : 'New program', items: [], ...(sp ? { split: sp } : {}) };
     S.programs.push(p); save(); push({ v: 'program', id: p.id });
     setTimeout(() => { const i = $('.title-input'); i && (i.focus(), i.select()); }, 60);
   },
@@ -1036,6 +1069,19 @@ const A = {
     const c = await actionSheet([{ label: 'Remove', danger: true }], { title: ex(p.items[i].exId).name });
     if (c !== 0) return;
     p.items.splice(i, 1); save(); render();
+  },
+  async newSplit() {
+    const name = await inputSheet('New split', '', 'e.g. Push / Pull / Legs');
+    if (!name) return;
+    S.splits.push({ id: uid(), name }); save(); render(); toast('Split created — add its days');
+  },
+  async splitMenu(el) {
+    const sp = S.splits.find(s => s.id === el.dataset.id); if (!sp) return;
+    const nx = nextDay(sp);
+    const items = [...(nx ? [{ label: `Start ${nx.name}`, run: () => A.startProgram({ dataset: { id: nx.id } }) }] : []),
+      { label: 'Add a day', run: () => A.newProgram({ dataset: { split: sp.id } }) }, { label: 'Rename split', run: async () => { const n = await inputSheet('Rename split', sp.name); if (n) { sp.name = n; save(); render(); } } },
+      { label: 'Delete split', danger: true, run: async () => { if (await confirmSheet('Delete split', { title: `Delete “${sp.name}”?`, msg: 'Its days are kept as separate programs.' })) { S.splits = S.splits.filter(s => s !== sp); for (const p of S.programs) if (p.split === sp.id) delete p.split; save(); render(); } } }];
+    const i = await actionSheet(items, { title: sp.name }); if (i != null && i >= 0) items[i].run();
   },
   dupProgram(el) {
     const p = S.programs.find(x => x.id === el.dataset.id);
@@ -1166,8 +1212,10 @@ const A = {
   repeatWorkout(el) { const w = S.workouts.find(x => x.id === el.dataset.id); startWorkout(w.programId ? '' : w.name, w.programId, w.exercises.map(e => ({ exId: e.exId, sets: e.sets.filter(s => !s.warm).length || e.sets.length }))); },
   saveAsProgram(el) {
     const w = S.workouts.find(x => x.id === el.dataset.id);
-    S.programs.push({ id: uid(), name: w.name, items: w.exercises.map(e => ({ id: uid(), exId: e.exId, sets: e.sets.filter(s => !s.warm).length || e.sets.length, reps: '' })) });
-    save(); toast('Saved as program');
+    const reps = e => { const ws = e.sets.filter(s => !s.warm && num(s.r) > 0); return ws.length ? String(Math.round(ws.reduce((a, s) => a + num(s.r), 0) / ws.length)) : ''; };
+    const p = { id: uid(), name: w.name, items: w.exercises.map(e => ({ id: uid(), exId: e.exId, sets: e.sets.filter(s => !s.warm).length || e.sets.length, reps: reps(e) })) };
+    S.programs.push(p); save();
+    UI.tab = 'train'; UI.stack.train = [{ v: 'program', id: p.id }]; render('push'); toast('Saved as program — add it to a split if you like');
   },
   async deleteWorkout(el) {
     const w = S.workouts.find(x => x.id === el.dataset.id);
@@ -1509,7 +1557,13 @@ document.addEventListener('input', e => {
   else if (b === 'pickerQ') { UI.picker.q = v; renderPicker(); return; }
   save();
 });
-document.addEventListener('change', e => {
+document.addEventListener('change', async e => {
+  if (e.target.id === 'prog-split') {
+    const p = S.programs.find(x => x.id === e.target.dataset.id); let v = e.target.value;
+    if (v === '+') { const n = await inputSheet('New split', '', 'e.g. Push / Pull / Legs'); if (!n) { render(); return; } const sp = { id: uid(), name: n }; S.splits.push(sp); v = sp.id; }
+    if (v) p.split = v; else delete p.split;
+    save(); render(); return;
+  }
   if (e.target.dataset.bind === 'edit.parent') {
     UI.edit.parent = e.target.value;
     if (e.target.value) { const p = ex(e.target.value); UI.edit.sec = p.sec; $$('#sec-chips .chip').forEach(c => c.classList.toggle('on', c.dataset.id === p.sec)); }
