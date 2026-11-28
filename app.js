@@ -32,11 +32,10 @@ let S;          // persisted state
 let VIDS = [];  // video records
 const UI = {
   tab: 'train', stack: { train: [], history: [], analyze: [], library: [], profile: [] }, scroll: {}, lastKey: '',
-  histSort: 'new', histQ: '', histProg: 'all', libQ: '', libSort: 'sec', libOpen: new Set(['d-squat', 'd-bench-press', 'd-deadlift'].map(() => '')),
+  histSort: 'new', histQ: '', histProg: 'all', libQ: '', libSort: 'sec', libOpen: new Set(),
   exRange: 'all', exPage: 0, exFamily: false, e1rmLow: false, repN: 5, bodyRange: '3m', profSeg: 'me', anaView: 'progress', rankMode: 'dots', heatEff: false, fbKind: 'idea', progPeriod: 'month', heatMode: 'frac',
-  editW: null, urls: [], pick: null, sheetClose: null, picker: null, edit: null, vidTarget: null, noClick: false,
+  editW: null, varTarget: null, afterVar: null, ev: null, pasted: null, exEvs: [], urls: [], pick: null, sheetClose: null, picker: null, edit: null, vidTarget: null, noClick: false,
 };
-UI.libOpen.clear();
 
 let saveTimer;
 function save(now) {
@@ -267,7 +266,7 @@ function vTrain() {
   return header('Train') + `<div class="pad">
     <button class="big-btn" data-a="startEmpty">${I.plus} Start empty workout</button>
     ${splits}
-    <div class="sec-hd"><h2>${splits ? 'Other programs' : 'Programs'}</h2><span class="hd-actions"><button class="link" data-a="newSplit">New split</button><button class="link strong" data-a="newProgram">New</button></span></div>
+    <div class="sec-hd"><h2>${splits ? 'Other programs' : 'Programs'}</h2><button class="link strong" data-a="newMenu">New</button></div>
     ${loose.map(p => progCard(p)).join('') || (splits ? '' : `<div class="empty">Programs are workouts you've saved, ready to start with one tap. Group them into a split, like Push / Pull / Legs, and the app suggests the next day.<button class="link" data-a="newProgram">Create a program</button></div>`)}
     ${last ? `<div class="sec-hd"><h2>Last workout</h2></div>${workoutRow(last)}` : ''}</div>`;
 }
@@ -299,16 +298,33 @@ function exCard(e, ei, k) {
     <button class="ex-title" data-a="fold" data-w="${k}" data-ei="${ei}" aria-expanded="${!e.fold}">${icon(x.icon)}<span class="ex-name"><span>${esc(x.name)}</span>${e.fold ? `<small>${foldSummary(e, x)}</small>` : ''}</span><span class="fold-chev">${I.chevD}</span></button>
     <button class="icon-btn sm" data-a="addVideo" data-ex="${x.id}" data-w="${w.id}" aria-label="Add video">${I.video}${nv ? `<b>${nv}</b>` : ''}</button>
     <button class="icon-btn sm" data-a="exMenu" data-w="${k}" data-ei="${ei}" aria-label="More options">${I.more}</button></div>`;
-  if (e.fold) return `<section class="card excard folded" data-ri="${ei}">${head}</section>`;
+  const ssTag = e.ss ? `<p class="ss-tag">Superset${(() => { const o = w.exercises.filter(y => y.ss === e.ss && y !== e).map(y => ex(y.exId).name); return o.length ? ' with ' + esc(o.join(', ')) : ''; })()}</p>` : '';
+  if (e.fold) return `<section class="card excard folded ${e.ss ? 'ss' : ''}" data-ri="${ei}">${ssTag}${head}</section>`;
   const last = live ? sessionsFor(e.exId)[0] : null;
   let n = 0;
-  return `<section class="card excard" data-ri="${ei}">${head}
+  return `<section class="card excard ${e.ss ? 'ss' : ''}" data-ri="${ei}">${ssTag}${head}
     ${fam ? `<button class="var-chip" data-a="switchVar" data-w="${k}" data-ei="${ei}">${isMain(x) ? 'Variations' : 'Variation of ' + esc(mainOf(x).name)}${I.chevD}</button>` : ''}
     ${x.note ? `<p class="ex-note">${I.note}<span>${esc(x.note)}</span></p>` : ''}
     ${last ? `<p class="ex-last">Last time, ${fmtDate(last.w.start, { day: 'numeric', month: 'short' })}: ${last.sets.map(s => setLabel(s, undefined, cardio)).join(', ')}</p>` : ''}
     <div class="set-row head" style="grid-template-columns:${cols}"><span>Set</span><span>${cardio ? 'km' : 'kg'}</span><span>${cardio ? 'Min' : 'Reps'}</span>${hasE ? `<button class="et" data-a="exMenu" data-w="${k}" data-ei="${ei}">${e.et}</button>` : ''}${live ? '<span></span>' : ''}</div>
     ${e.sets.map((s, si) => setRow(e, s, k, ei, si, s.warm ? 'W' : ++n, cols, hasE, live, cardio)).join('')}
     <button class="add-set" data-a="addSet" data-w="${k}" data-ei="${ei}">${I.plus} Add set</button></section>`;
+}
+function setExtras(s) {
+  const v = VIDS.filter(x => x.setId === s.id);
+  if (!s.note && !v.length) return '';
+  return `<div class="set-x">${v.map(x => `<button class="set-vid" data-a="playVideo" data-id="${x.id}">${svgIcon(UI_ICONS.play, 12)} Video</button>`).join('')}${s.note ? `<span>${esc(s.note)}</span>` : ''}</div>`;
+}
+// Warm-up ramp to the first working weight: empty bar, then about 40 / 60 / 80 %.
+function addWarmups(e) {
+  const first = e.sets.find(s => !s.warm), top = num(first?.w) || num(first?.pw);
+  if (!(top > 0)) { toast('Enter a working weight first'); return; }
+  const bar = S.settings.bar || 20, r25 = v => Math.round(v / 2.5) * 2.5, out = [];
+  if (top >= bar * 2) out.push([bar, 10]);
+  for (const [p, r] of [[.4, 5], [.6, 3], [.8, 2]]) { const w = r25(top * p); if (w > bar && w < top && !out.some(o => o[0] === w)) out.push([w, r]); }
+  e.sets = e.sets.filter(s => !(s.warm && !s.done)).concat();
+  e.sets.unshift(...out.map(([w, r]) => Object.assign(newSet(), { w: String(w), r: String(r), warm: true })));
+  save(); render(); toast(`${out.length} warm-up sets added`);
 }
 function setRow(e, s, k, ei, si, label, cols, hasE, live, cardio) {
   const w = getW(k);
@@ -318,6 +334,7 @@ function setRow(e, s, k, ei, si, label, cols, hasE, live, cardio) {
   let rest = '';
   if (s.done && (liveRest || s.restAfter != null)) rest = `<div class="rest ${liveRest ? 'live' : ''}">${I.timer}${liveRest ? `<span data-since="${s.doneAt}"></span>&nbsp;resting` : `${fmtClock(s.restAfter)} rest`}${pr}</div>`;
   else if (pr) rest = `<div class="rest">${pr}</div>`;
+  rest += setExtras(s);
   return `<div class="swipe" data-swipe data-w="${k}" data-ei="${ei}" data-si="${si}"><div class="swipe-bg">${I.trash}</div><div class="swipe-fg">
     <div class="set-row ${s.done && live ? 'done' : ''}" style="grid-template-columns:${cols}">
       <button class="set-n" data-a="setMenu" data-w="${k}" data-ei="${ei}" data-si="${si}" aria-label="Set ${label} options">${label}</button>
@@ -408,7 +425,7 @@ function vWorkout(id) {
     ${w.exercises.map(e => { const x = ex(e.exId), cardio = isCardio(x); const vids = VIDS.filter(v => v.workoutId === w.id && v.exId === e.exId); let n = 0; return `<section class="card excard">
       <div class="ex-hd"><button class="ex-title" data-a="openExercise" data-id="${x.id}">${icon(x.icon)}<span class="ex-name"><span>${esc(x.name)}</span></span></button>
       <button class="icon-btn sm" data-a="addVideo" data-ex="${x.id}" data-w="${w.id}" aria-label="Add video">${I.video}</button></div>
-      <div style="margin-top:8px">${e.sets.map(s => `<div class="wd-set"><span class="n">${s.warm ? 'W' : ++n}</span><span>${setLabel(s, e.et, cardio)}${s.isPR ? '<span class="pr">PR</span>' : ''}</span><span class="r">${s.restAfter != null ? fmtClock(s.restAfter) + ' rest' : ''}</span></div>`).join('')}</div>
+      <div style="margin-top:8px">${e.sets.map(s => `<div class="wd-set"><span class="n">${s.warm ? 'W' : ++n}</span><span>${setLabel(s, e.et, cardio)}${s.isPR ? '<span class="pr">PR</span>' : ''}</span><span class="r">${s.restAfter != null ? fmtClock(s.restAfter) + ' rest' : ''}</span></div>${setExtras(s)}`).join('')}</div>
       ${vids.length ? vidGrid(vids) : ''}</section>`; }).join('')}
     ${w.notes ? `<div class="card"><div class="muted" style="font-size:13px;font-weight:600;margin-bottom:4px">Notes</div>${esc(w.notes).replace(/\n/g, '<br>')}</div>` : ''}
     <div class="sec-hd"></div>
@@ -987,10 +1004,15 @@ async function exportData() {
 function whatsNew() {
   sheet(`<div class="sh-hd"><span></span><h3>What's new</h3><button class="link strong" data-a="closeSheet">Done</button></div>
     <div class="sh-body"><h2 style="margin:4px 4px 12px">Lift Log ${APP_VERSION}</h2><div class="card list news">
-    ${[['person', 'Profile and sync', 'Sign in with Google to back up your training and see it on your PC. Or stay a guest — everything still works offline.'],
-      ['note', 'Send feedback', 'Ideas and problems go straight to the developer from Profile.'],
-      ['scale', 'Body moved', 'Bodyweight now lives in Profile, next to your account. Settings are there too.']]
-      .map(([ic, t, s]) => `<div class="row"><span class="row-ic">${I[ic]}</span><span class="row-main"><span class="row-t">${t}</span><span class="row-s">${s}</span></span></div>`).join('')}</div>
+    ${[['chart', 'Analyze tab', 'Progress, a new Analyzer (trends, fatigue, what to lift next time, meet total) and Ranks with DOTS or × bodyweight.'],
+      ['target', 'Clearer heatmap', 'Stepped colours from low to high, a 10–20 sets target band, and an effort-adjusted switch.'],
+      ['list', 'Splits and paste', 'Group programs into a split and the app suggests the next day. Paste a program as text to build it in one go.'],
+      ['gear', 'Gym packages', 'Powerhouse (Hammer Strength) and PureGym (Matrix) can be switched on or off in Settings.'],
+      ['note', 'Events', 'Mark injuries, breaks or form changes — they show as dots on your graphs.'],
+      ['trophy', 'Workout summary', 'Badges for best set, new records and heaviest lifts, muscles worked and estimated calories.'],
+      ['barbell', 'In the gym', 'Warm-up sets, supersets, swap an exercise, a comment or video per set, and new exercises fold the previous one.'],
+      ['person', 'Sync and themes', 'Sign in with Google to sync with your PC. New Cream and Charcoal themes.']]
+      .map(([ic, t, s]) => `<div class="row"><span class="row-ic">${UI_ICONS[ic] ? I[ic] : icon(ic, 22)}</span><span class="row-main"><span class="row-t">${t}</span><span class="row-s">${s}</span></span></div>`).join('')}</div>
     ${Sync.on ? '' : `<div style="height:16px"></div>${signInButtons()}`}</div>`, { cls: 'full' });
 }
 
@@ -1070,6 +1092,11 @@ const A = {
     if (c !== 0) return;
     p.items.splice(i, 1); save(); render();
   },
+  async newMenu() {
+    const items = [['New program', () => A.newProgram()], ['New split', () => A.newSplit()], ['Paste a program as text', openPasteProgram]];
+    const i = await actionSheet(items.map(([label]) => ({ label })));
+    if (i >= 0) items[i][1]();
+  },
   async newSplit() {
     const name = await inputSheet('New split', '', 'e.g. Push / Pull / Legs');
     if (!name) return;
@@ -1110,6 +1137,11 @@ const A = {
     const fam = !isMain(x) || kidsOf(x.id).length > 0;
     const items = [];
     if (fam) items.push({ label: 'Switch variation', run: () => A.switchVar(el) });
+    items.push({ label: 'Swap exercise', run: () => openPicker(ids => { if (!ids.length) return; e.exId = ids[0]; if (k === 'a') { const ph = placeholders(ids[0], e.sets.length, ''); e.sets.forEach((s, i) => { if (!s.done) { s.pw = ph[i][0]; s.pr = ph[i][1]; } }); markActivePRs(); } save(); render(); }, 'Swap for') });
+    if (k === 'a' && !isCardio(x)) items.push({ label: 'Add warm-up sets', run: () => addWarmups(e) });
+    const nxt = w.exercises[ei + 1];
+    if (e.ss) items.push({ label: 'Remove from superset', run: () => { const g = e.ss; delete e.ss; const left = w.exercises.filter(y => y.ss === g); if (left.length < 2) left.forEach(y => delete y.ss); save(); render(); } });
+    else if (nxt) items.push({ label: `Superset with ${ex(nxt.exId).name}`, run: () => { const g = nxt.ss || uid(); e.ss = g; nxt.ss = g; save(); render(); } });
     items.push({ label: x.note ? 'Edit note' : 'Add note', run: () => openNote(x.id) });
     items.push({ label: 'View history and graphs', run: () => push({ v: 'exercise', id: x.id }) });
     if (!isCardio(x)) for (const t of ['RPE', 'RIR', 'off'].filter(t => t !== e.et)) items.push({ label: t === 'off' ? 'Hide effort column' : `Use ${t}`, run: () => { e.et = t; save(); render(); } });
@@ -1146,6 +1178,8 @@ const A = {
     const wt = num(s.w) || num(s.pw), cardio = isCardio(ex(e.exId));
     const items = [{ label: s.warm ? 'Mark as working set' : 'Mark as warm-up', run: () => { s.warm = !s.warm; } }];
     if (!cardio && wt > S.settings.bar) items.push({ label: `Plates for ${fmtN(wt)} kg`, run: () => showPlates(wt) });
+    items.push({ label: s.note ? 'Edit comment' : 'Add comment', run: async () => { const n = await inputSheet('Comment', s.note || '', 'e.g. Bar path drifted, felt easy'); if (n !== null) { s.note = n; save(); render(); } return 1; } });
+    items.push({ label: 'Attach video to this set', run: () => { UI.vidTarget = { exId: e.exId, workoutId: w.id, setId: s.id, date: w === S.active ? Date.now() : w.start }; const inp = $('#vid-in'); inp.value = ''; inp.click(); return 1; } });
     items.push({ label: 'Delete set', danger: true, run: () => deleteSet(k, +el.dataset.ei, si) });
     const c = await actionSheet(items);
     if (c < 0) return;
@@ -1361,7 +1395,7 @@ const A = {
   },
 };
 
-Object.assign(A, EV_ACTIONS);
+Object.assign(A, EV_ACTIONS, PASTE_ACTIONS);
 
 function openNote(id) {
   const x = ex(id);
@@ -1574,7 +1608,7 @@ $('#vid-in').addEventListener('change', async e => {
   const files = [...e.target.files], T = UI.vidTarget; if (!files.length || !T) return;
   try {
     for (const f of files) {
-      const v = { id: uid(), exId: T.exId, workoutId: T.workoutId, date: T.date, blob: f, type: f.type, name: f.name, size: f.size };
+      const v = { id: uid(), exId: T.exId, workoutId: T.workoutId, date: T.date, blob: f, type: f.type, name: f.name, size: f.size, ...(T.setId ? { setId: T.setId } : {}) };
       await DB.putVideo(v); VIDS.push(v);
     }
     toast(files.length > 1 ? `${files.length} videos saved` : 'Video saved'); render();

@@ -325,3 +325,72 @@ const EV_ACTIONS = {
     S.events = S.events.filter(e => e.id !== id); save(); render();
   },
 };
+
+/* ---------- paste a program as text ---------- */
+// Understands lines like "Squat 4x5", "Bench press – 3 × 8-10", "Lat pulldown: 3 sets of 12". Lines such as
+// "Day 1 – Push" or "Upper:" start a new day; several days become a split.
+function parseProgram(text) {
+  const days = []; let cur = null;
+  const newDay = name => { cur = { name: name || `Day ${days.length + 1}`, items: [] }; days.push(cur); };
+  for (let raw of text.split(/\r?\n/)) {
+    const line = raw.replace(/^[\s\-•*·>#]+|\s+$/g, '').replace(/^\d+[.)]\s+/, '');
+    if (!line) continue;
+    const m = line.match(/^(.+?)[\s:\-–—,]+(\d+)\s*(?:x|×|sets? of|sets? x)\s*(\d+(?:\s*[-–]\s*\d+)?)/i)
+      || line.match(/^(.+?)[\s:\-–—,]+(\d+)\s*sets?\b(?:.*?(\d+(?:\s*[-–]\s*\d+)?)\s*reps?)?/i);
+    if (m) {
+      if (!cur) newDay('');
+      cur.items.push({ text: m[1].trim().replace(/[\s:\-–—,]+$/, ''), sets: Math.min(12, parseInt(m[2]) || 3), reps: (m[3] || '').replace(/\s/g, '').replace('–', '-') });
+    } else if (line.length <= 40 && !/\d+\s*(x|×)/.test(line)) newDay(line.replace(/[:\s]+$/, ''));
+  }
+  for (const d of days) for (const it of d.items) it.match = matchExercise(it.text);
+  return days.filter(d => d.items.length);
+}
+function matchExercise(name) {
+  const ALIAS = { rdl: 'romanian deadlift', sldl: 'stiff leg deadlift', ohp: 'overhead press', db: 'dumbbell', bb: 'barbell', cgbp: 'close grip bench press', bss: 'bulgarian split squat', ghr: 'glute ham raise' };
+  const n = name.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').map(w => ALIAS[w] || w).join(' ');
+  const live = S.exercises.filter(x => !x.archived && !packOff(x));
+  const exact = live.find(x => x.name.toLowerCase() === n); if (exact) return exact;
+  const words = n.split(' ').filter(w => w.length > 2 && !['the', 'and', 'with'].includes(w));
+  let best = null, bs = 0;
+  for (const x of live) {
+    const xn = x.name.toLowerCase(), xw = xn.split(/[^a-z0-9]+/);
+    const hit = words.filter(w => xw.some(v => v.startsWith(w.slice(0, 5)) || w.startsWith(v.slice(0, 5)))).length;
+    // Most of the typed words must match, so "Nordic curl" doesn't become "Cable curl".
+    if (!words.length || hit / words.length < .66) continue;
+    const sc = hit / Math.max(words.length, xw.length) + (xn.includes(n) || n.includes(xn) ? .5 : 0);
+    if (sc > bs) { bs = sc; best = x; }
+  }
+  return bs >= .5 ? best : null;
+}
+function openPasteProgram() {
+  sheet(`<div class="sh-hd"><button class="link" data-a="closeSheet">Cancel</button><h3>Paste a program</h3><button class="link strong" data-a="createPasted">Create</button></div>
+    <div class="sh-body"><textarea class="notes" id="paste-in" rows="8" placeholder="Day 1 – Upper\nBench press 4x5\nBarbell row 4x8\n\nDay 2 – Lower\nSquat 4x5\nRomanian deadlift 3x8-10"></textarea>
+    <p class="muted hint">One exercise per line, like “Squat 4x5”. A line without sets, like “Day 2 – Lower”, starts a new day.</p><div id="paste-prev"></div></div>`, { cls: 'full' });
+  $('#paste-in').addEventListener('input', previewPaste);
+  setTimeout(() => $('#paste-in')?.focus(), 80);
+}
+function previewPaste() {
+  const days = parseProgram($('#paste-in').value); UI.pasted = days;
+  $('#paste-prev').innerHTML = days.map(d => `<p class="grp-t">${esc(d.name)}</p><div class="card list">${d.items.map(it => `<div class="row"><span class="row-ic">${icon(it.match ? it.match.icon : 'barbell', 22)}</span><span class="row-main"><span class="row-t">${esc(it.match ? it.match.name : it.text)}</span><span class="row-s">${it.sets} sets${it.reps ? ' × ' + esc(it.reps) : ''}${it.match ? '' : ' · new exercise'}</span></span></div>`).join('')}</div>`).join('');
+}
+const PASTE_ACTIONS = {
+  createPasted() {
+    const days = UI.pasted || [];
+    if (!days.length) { toast('Paste at least one line like “Squat 4x5”'); return; }
+    const sp = days.length > 1 ? { id: uid(), name: 'Pasted split' } : null;
+    if (sp) S.splits.push(sp);
+    let first = null;
+    for (const d of days) {
+      const items = d.items.map(it => {
+        let x = it.match;
+        if (!x) { x = { id: uid(), name: it.text.replace(/\b\w/g, c => c.toUpperCase()), sec: ensureOther(S), icon: 'barbell', m: cloneM(MP.none) }; S.exercises.push(x); it.match = x; }
+        return { id: uid(), exId: x.id, sets: it.sets, reps: it.reps };
+      });
+      const p = { id: uid(), name: d.name, items, ...(sp ? { split: sp.id } : {}) };
+      S.programs.push(p); first = first || p;
+    }
+    save(); closeSheet();
+    if (sp) { render(); toast(`${days.length} days added as a split — rename it from its ⋯ menu`); }
+    else { UI.stack.train = [{ v: 'program', id: first.id }]; render('push'); toast('Program created'); }
+  },
+};

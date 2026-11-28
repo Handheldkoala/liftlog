@@ -483,3 +483,9 @@ button.card:active, .prog:active, .row-hit:active, button.row:active { backgroun
 .next-tag { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--acc); margin-bottom: 2px; }
 .select.inline { width: auto; height: 34px; font-size: 15px; background: var(--fill); padding: 0 12px; border-radius: 9px; max-width: 46%; }
 .sec-hd .link .ic { width: 22px; height: 22px; }
+/* supersets, set comments and set videos */
+.excard.ss { box-shadow: inset 3px 0 0 var(--acc); }
+.ss-tag { margin: 0 0 4px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--acc); }
+.set-x { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 0 0 6px 44px; font-size: 13px; color: var(--sub); }
+.set-vid { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; background: var(--fill); border-radius: 999px; padding: 3px 9px; color: var(--text); }
+.set-vid .ic { width: 12px; height: 12px; }

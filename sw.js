@@ -1,5 +1,5 @@
 // Network first, so new versions arrive when online; cached copy keeps the app working offline in the gym.
-const V = 'liftlog-v3.0';
+const V = 'liftlog-v3.1';
 const FILES = ['./', 'index.html', 'styles.css', 'app.js', 'data.js', 'sync.js', 'analyze.js', 'icons.js', 'manifest.json', 'icons/icon-180.png', 'icons/icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(V).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => {
